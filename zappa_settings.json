@@ -1,0 +1,10 @@
+{
+    "dev": {
+        "app_function": "fth_api.app",
+        "aws_region": "us-west-1",
+        "profile_name": "default",
+        "project_name": "feed-the-hungry",
+        "runtime": "python3.7",
+        "s3_bucket": "feed-the-hungry"
+    }
+}

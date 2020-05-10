@@ -1,0 +1,7 @@
+zappa
+flask
+flask_restful
+flask_cors
+Werkzeug
+pymysql
+python-dateutil
