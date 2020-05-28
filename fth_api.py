@@ -368,6 +368,82 @@ class OrderStatus(Resource):
             disconnect(conn)
 
 
+# Shows Customer Addresses
+class CustomerAddresses(Resource):
+    def get(self):
+        response = {}
+        items = {}
+        try:
+            conn = connect()
+
+            items = execute("""
+            SELECT * FROM feed_the_hungry.customer_delivery;""", 'get', conn)
+
+            response['message'] = 'successful'
+            response['result'] = items
+
+            return response, 200
+        except:
+            raise BadRequest('Request failed, please try again later.')
+        finally:
+            disconnect(conn)
+
+# Shows DELIVERIES
+class Deliveries(Resource):
+    def get(self):
+        response = {}
+        items = {}
+        try:
+            conn = connect()
+
+            items = execute("""
+            SELECT first_name
+                , last_name
+                , phone_number
+                , address
+                , apt
+                , city
+                , state
+                , zipcode
+                , Sum(Total_Items) as Total_Items
+                , delivery_note
+                , delivery_date
+            FROM
+                (SELECT user_id
+                    , COUNT(foodID) AS Total_Items
+                    , delivery_note
+                    , delivery_date
+                FROM
+                    (SELECT order_id
+                        , user_id
+                        , foodbank_id
+                        ,TRIM('"' FROM CAST(json_extract(list, val) AS CHAR)) AS foodID
+                        , delivery_note
+                        , delivery_date
+                    FROM
+                    orders
+                    JOIN
+                    numbers
+                    ON JSON_LENGTH(list) >= n
+                    WHERE status = "pending"
+                    ) temp
+                GROUP BY order_id) temp
+            JOIN customer_delivery
+            ON
+            user_id = customer_id
+            GROUP BY delivery_date;
+            """, 'get', conn)
+
+            response['message'] = 'successful'
+            response['result'] = items
+
+            return response, 200
+        except:
+            raise BadRequest('Request failed, please try again later.')
+        finally:
+            disconnect(conn)
+
+
 # INVENTORY QUERIES - ISSEI
 
 # QUERY : EXCESS INVENTORY
@@ -452,10 +528,84 @@ class NoInventory(Resource):
             conn = connect()
 
             items = execute("""
-            SELECT food_list.food_id, item
-            FROM food_list
-            LEFT JOIN inventory ON food_list.food_id = inventory.food_id
-            WHERE qty = 0 OR qty IS NULL;""", 'get', conn)
+            SELECT fl.foodbank_id
+                , foodbank_name
+                , fl.food_id
+                , item
+                , image
+            FROM (
+                SELECT *
+                FROM foodbanks, food_list)
+                AS fl
+            LEFT JOIN inventory i
+            ON fl.foodbank_id = i.foodbank_id AND fl.food_id = i.food_id
+            WHERE qty = 0 OR qty IS NULL
+            ORDER BY fl.foodbank_id, fl.food_id
+            """, 'get', conn)
+
+            response['message'] = 'successful'
+            response['result'] = items
+
+            return response, 200
+        except:
+            raise BadRequest('Request failed, please try again later.')
+        finally:
+            disconnect(conn)
+
+
+# QUERY : Food Images
+class FoodImages(Resource):
+    def get(self):
+        response = {}
+        items = {}
+        try:
+            conn = connect()
+
+            items = execute("""
+            SELECT food_id
+                , item
+                , image
+            FROM food_list;
+            """, 'get', conn)
+
+            response['message'] = 'successful'
+            response['result'] = items
+
+            return response, 200
+        except:
+            raise BadRequest('Request failed, please try again later.')
+        finally:
+            disconnect(conn)
+            
+            
+# QUERY : Inventory
+class Inventory(Resource):
+    def get(self):
+        response = {}
+        items = {}
+        try:
+            conn = connect()
+
+            items = execute("""
+            SELECT foodbank_name
+                    , foodbank_id
+                    , temp.food_id
+                    , item AS food_name
+                    , SUM(qty) as Quantity
+                    , image
+            FROM
+                    (SELECT i.foodbank_id
+                            , foodbank_name
+                            , food_id
+                            , qty
+                    FROM inventory i
+                    JOIN foodbanks f
+                    ON i.foodbank_id = f.foodbank_id) temp
+            JOIN food_list f
+            ON f.food_id = temp.food_id
+            GROUP BY foodbank_id, food_id
+            ORDER BY foodbank_id;
+            """, 'get', conn)
 
             response['message'] = 'successful'
             response['result'] = items
@@ -506,6 +656,49 @@ class CustomerOrderValue(Resource):
             raise BadRequest('Request failed, please try again later.')
         finally:
             disconnect(conn)
+
+
+
+
+
+# New Customers by Month by FoodBank
+class NewCustomersbyFoodbank(Resource):
+    def get(self):
+        response = {}
+        items = {}
+        try:
+            conn = connect()
+
+            items = execute("""
+            SELECT MONTH(dates) AS signup_month
+	            , temp2.foodbank_id
+	            , foodbank_name
+                , COUNT(user_id) AS new_customers
+            FROM (
+	            SELECT foodbank_id 
+	            , user_id
+	            , DATE(STR_TO_DATE(temp.timestamp, '%c-%e-%Y %H: %i:%s')) AS dates
+	            FROM (
+		            SELECT  o1.foodbank_id
+				            , o1.user_id
+				            , o1.timestamp 
+		            FROM orders o1
+		            INNER JOIN orders o2 ON  o1.user_id = o2.user_id AND o1.foodbank_id = o2.foodbank_id
+		            GROUP BY user_id, timestamp ORDER BY o1.foodbank_id  ,o1.timestamp ASC) 
+                    AS temp
+	            GROUP BY foodbank_id, user_id ORDER BY foodbank_id) 
+                AS temp2
+            JOIN foodbanks fd ON temp2.foodbank_id = fd.foodbank_id 
+            GROUP BY signup_month, foodbank_name ORDER BY signup_month;""", 'get', conn)
+
+            response['message'] = 'successful'
+            response['result'] = items
+
+            return response, 200
+        except:
+            raise BadRequest('Request failed, please try again later.')
+        finally:
+            disconnect(conn)
             
             
 # FOODBANK QUERIES - PRASHANT
@@ -530,6 +723,61 @@ class Foodbanks(Resource):
         finally:
             disconnect(conn)
 
+# Foodbank Info
+class FoodbankInfo(Resource):
+    def get(self):
+        response = {}
+        items = {}
+        try:
+            conn = connect()
+
+            items = execute("""
+            SELECT foodbank_name
+		            , foodbank_id
+                    , tag_line
+                    , Address
+                    , monday
+                    , tuesday
+                    , wednesday
+                    , thursday
+                    , friday
+                    , saturday
+                    , sunday
+                    , temp.food_id
+                    , item AS food_name
+                    , SUM(qty) as Quantity
+                    , image
+            FROM
+                    (SELECT i.foodbank_id
+                            , foodbank_name
+                            , food_id
+                            , qty 
+                            , tag_line
+                            , concat(foodbank_address, SPACE(1) ,foodbank_address, SPACE(1), foodbank_city, SPACE(1), foodbank_state) as Address
+                            , monday
+                            , tuesday
+                            , wednesday
+                            , thursday
+                            , friday
+                            , saturday
+                            , sunday
+                    FROM 
+                    inventory i
+                    JOIN foodbanks f 
+                    ON i.foodbank_id = f.foodbank_id) temp
+            JOIN food_list f 
+            ON f.food_id = temp.food_id
+            GROUP BY foodbank_id, food_id
+            ORDER BY foodbank_id;""", 'get', conn)
+
+            response['message'] = 'successful'
+            response['result'] = items
+
+            return response, 200
+        except:
+            raise BadRequest('Request failed, please try again later.')
+        finally:
+            disconnect(conn)
 
 # -- Queries end here -------------------------------------------------------------------------------
 
@@ -572,14 +820,20 @@ api.add_resource(TypesOfFood, '/api/v2/foodtypes')
 api.add_resource(DonationbyDate, '/api/v2/donation')
 # ORDER QUERIES - PRAGYA
 api.add_resource(OrderStatus, '/api/v2/orderstatus')
+api.add_resource(CustomerAddresses, '/api/v2/customeraddresses')
+api.add_resource(Deliveries, '/api/v2/deliveries')
 # CUSTOMER QUERIES  - WINSTON
 api.add_resource(CustomerOrderValue, '/api/v2/customervalue')
+api.add_resource(NewCustomersbyFoodbank, '/api/v2/newcustomers')
 # INVENTORY QUERIES - ISSEI
 api.add_resource(ExcessInventory, '/api/v2/excess')
 api.add_resource(LowInventory, '/api/v2/low')
 api.add_resource(NoInventory, '/api/v2/zero')
+api.add_resource(FoodImages, '/api/v2/foodimages')
+api.add_resource(Inventory, '/api/v2/inventory')
 # FOODBANK QUERIES - PRASHANT
 api.add_resource(Foodbanks, '/api/v2/foodbanks')
+api.add_resource(FoodbankInfo, '/api/v2/foodbankinfo')
 
 
 # Run on below IP address and port
