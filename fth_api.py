@@ -197,27 +197,28 @@ class DonorValuation(Resource):
             conn = connect()
 
             items = execute("""
-                SELECT temp.foodbank_id
-                    , fb.foodbank_name
-                    , donor_id
-                    , d.first_name
-                    , d.last_name
-                    , sum(total) totalDonation
-                FROM (
-                    SELECT foodbank_id, donor_id, foodID, round(count(foodID) * value, 2) total
-                    FROM (
-                        SELECT foodbank_id
-                            , donor_id
-                            , trim('"' FROM cast(json_extract(donations.food_id, val) as CHAR)) AS foodID
-                        FROM donations
-                        JOIN numbers ON JSON_LENGTH(food_id) > n - 1)
-                            AS t
-                    JOIN food_list fl ON fl.food_id = t.foodID
-                    GROUP BY foodbank_id, donor_id, foodID)
-                        AS temp
-                LEFT JOIN donor d ON d.DonorID = temp.donor_id
-                JOIN foodbanks fb ON temp.foodbank_id = fb.foodbank_id
-                GROUP BY foodbank_id, donor_id;""", 'get', conn)
+                        SELECT donation_foodbank_id
+                                , fb_name
+                                , d.donor_id
+                                , donor_first_name
+                                , donor_last_name
+                                , sum(total) totalDonation
+                        FROM (
+                            SELECT donation_foodbank_id
+                                    , donor_id
+                                    , foodID
+                                    , round(count(foodID) * fl_value_in_dollars, 2) total
+                            FROM (
+                                    SELECT donation_foodbank_id
+                                        , donor_id
+                                        , trim('"' FROM cast(json_extract(donation_food_list, val) as CHAR)) AS foodID
+                                    FROM donations
+                                    JOIN numbers ON JSON_LENGTH(donation_food_list) > n - 1) AS t
+                            JOIN food_list ON food_id = foodID
+                            GROUP BY donation_foodbank_id, donor_id, foodID)AS temp
+                        LEFT JOIN donor d ON d.donor_id = temp.donor_id
+                        JOIN foodbanks ON donation_foodbank_id = foodbank_id
+                        GROUP BY foodbank_id, d.donor_id;""", 'get', conn)
 
             response['message'] = 'successful'
             response['result'] = items
@@ -238,22 +239,21 @@ class ItemDonations(Resource):
             conn = connect()
 
             items = execute("""
-                SELECT t.foodbank_id
-                    , foodbank_name
-                    , foodID, item
-                    , TotalDonation
-                FROM (
-                    SELECT foodbank_id, foodID, count(foodID) TotalDonation
-                    FROM (
                         SELECT foodbank_id
-                            , trim('"' FROM cast(json_extract(donations.food_id, val) AS CHAR)) AS foodID
-                        FROM donations
-                        JOIN numbers ON JSON_LENGTH(food_id) > n - 1)
-                        AS temp
-                GROUP BY foodbank_id, foodID) t
-                JOIN food_list fl ON fl.food_id = t.foodID
-                JOIN foodbanks fb ON t.foodbank_id = fb.foodbank_id
-                ORDER BY TotalDonation DESC;""", 'get', conn)
+                            , fb_name
+                            , foodID
+                            , fl_name
+                            , TotalDonation
+                        FROM (
+                                SELECT donation_foodbank_id
+                                    , trim('"' FROM cast(json_extract(donation_food_list, val) AS CHAR)) AS foodID
+                                    , COUNT(trim('"' FROM cast(json_extract(donation_food_list, val) AS CHAR))) AS TotalDonation
+                                FROM donations
+                                JOIN numbers ON JSON_LENGTH(donation_food_list) > n - 1
+                                GROUP BY donation_foodbank_id, foodID) AS temp
+                        JOIN food_list ON food_id = foodID
+                        JOIN foodbanks ON donation_foodbank_id = foodbank_id
+                        ORDER BY TotalDonation DESC;""", 'get', conn)
 
             response['message'] = 'successful'
             response['result'] = items
@@ -275,19 +275,19 @@ class TypesOfFood(Resource):
             conn = connect()
 
             items = execute("""
-                SELECT temp.foodbank_id
-                    , foodbank_name
-                    , type
-                    , count(type) typetotal
+                SELECT foodbank_id
+                        , fb_name
+                        , fl_type
+                        , count(fl_type) total
                 FROM (
-                    SELECT foodbank_id
-                        , trim('"' FROM cast(json_extract(donations.food_id, val) AS CHAR)) AS foodID
+                    SELECT donation_foodbank_id
+                        , trim('"' FROM cast(json_extract(donation_food_list, val) AS CHAR)) AS foodID
                     FROM donations
-                    JOIN numbers on JSON_LENGTH(food_id) > n - 1)
+                    JOIN numbers on JSON_LENGTH(donation_food_list) > n - 1)
                     AS temp
-                JOIN food_list fl ON temp.foodID = fl.food_id
-                JOIN foodbanks fb ON fb.foodbank_id = temp.foodbank_id
-                GROUP BY foodbank_id, type;""", 'get', conn)
+                JOIN food_list ON foodID = food_id
+                JOIN foodbanks ON donation_foodbank_id = foodbank_id
+                GROUP BY foodbank_id, fl_type;""", 'get', conn)
 
             response['message'] = 'successful'
             response['result'] = items
@@ -308,21 +308,22 @@ class DonationbyDate(Resource):
             conn = connect()
 
             items = execute("""
-                SELECT temp.foodbank_id
-                    , fb.foodbank_name
-                    , dateselected
-                    , foodID
-                    , item
+                SELECT foodbank_id
+                        , fb_name
+                        , donations_date
+                        , foodID
+                        , quantity
+                        , fl_name
                 FROM (
-                    SELECT foodbank_id
-                        , date(STR_TO_DATE(date, '%c-%e-%Y %H:%i:%s')) AS dateselected
-                        , trim('"' FROM cast(json_extract(donations.food_id, val) as CHAR)) AS foodID
+                    SELECT donation_foodbank_id
+                        , date(STR_TO_DATE(donation_date, '%c-%e-%Y %H:%i:%s')) AS donations_date
+                        , trim('"' FROM cast(json_extract(donation_food_list, val) as CHAR)) AS foodID
+                        , COUNT(trim('"' FROM cast(json_extract(donation_food_list, val) as CHAR))) AS quantity
                     FROM donations
-                    JOIN numbers ON JSON_LENGTH(food_id) > n - 1)
-                    AS temp
-                JOIN food_list fl ON temp.foodID = fl.food_id
-                JOIN foodbanks fb ON fb.foodbank_id = temp.foodbank_id
-                GROUP BY foodbank_id, dateselected, foodID, item;""", 'get', conn)
+                    JOIN numbers ON JSON_LENGTH(donation_food_list) > n - 1
+                    GROUP BY donations_date, foodID, donation_foodbank_id) AS temp
+                JOIN food_list ON foodID = food_id
+                JOIN foodbanks ON foodbank_id = donation_foodbank_id;""", 'get', conn)
 
             response['message'] = 'successful'
             response['result'] = items
@@ -334,7 +335,6 @@ class DonationbyDate(Resource):
             disconnect(conn)
 
             
-# ORDER STATUS QUERIES - PRAGYA
 
 # Shows FoodBankID, Month, Completed Orders, Pending Orders, Total Orders
 class OrderStatus(Resource):
@@ -344,19 +344,17 @@ class OrderStatus(Resource):
         try:
             conn = connect()
 
-            items = execute(""" Select foodbank_id, Month, CompletedOrders, PendingOrders,TotalOrders from
-                (Select foodbank_id,
-                month,
-                sum(case when status = 'completed' then 1 else 0 end)
-                AS CompletedOrders,
-                count(*) - sum(case when status = 'completed' then 1 else 0 end) as PendingOrders,
-                count(*) as TotalOrders
-                from
-                (SELECT foodbank_id, (Month(STR_TO_DATE(timestamp, '%c-%e-%Y %H:%i:%s'))) as Month, status from orders
-                ) as s
-                group by month, foodbank_id
-                order by foodbank_id)
-                as temp;""", 'get', conn)
+            items = execute(""" SELECT foodbanks.foodbank_id
+                                        , fb_name
+                                        , (Month(STR_TO_DATE(order_date, '%c-%e-%Y %H:%i:%s'))) as order_month
+                                        , SUM(CASE WHEN o_status = 'completed' THEN 1 ELSE 0 END) AS CompletedOrders
+                                        , COUNT(*) - SUM(CASE WHEN o_status = 'completed' THEN 1 ELSE 0 END) AS PendingOrders
+                                        , COUNT(*) as TotalOrders
+                                FROM orders
+                                JOIN foodbanks
+                                ON o_foodbank_id = foodbanks.foodbank_id
+                                GROUP BY order_month, foodbanks.foodbank_id
+                                ORDER BY foodbanks.foodbank_id;""", 'get', conn)
 
             response['message'] = 'successful'
             response['result'] = items
@@ -397,42 +395,36 @@ class Deliveries(Resource):
             conn = connect()
 
             items = execute("""
-            SELECT first_name
-                , last_name
-                , phone_number
-                , address
-                , apt
-                , city
-                , state
-                , zipcode
-                , Sum(Total_Items) as Total_Items
-                , delivery_note
-                , delivery_date
-            FROM
-                (SELECT user_id
-                    , COUNT(foodID) AS Total_Items
-                    , delivery_note
-                    , delivery_date
-                FROM
-                    (SELECT order_id
-                        , user_id
-                        , foodbank_id
-                        ,TRIM('"' FROM CAST(json_extract(list, val) AS CHAR)) AS foodID
-                        , delivery_note
-                        , delivery_date
-                    FROM
-                    orders
-                    JOIN
-                    numbers
-                    ON JSON_LENGTH(list) >= n
-                    WHERE status = "pending"
-                    ) temp
-                GROUP BY order_id) temp
-            JOIN customer_delivery
-            ON
-            user_id = customer_id
-            GROUP BY delivery_date;
-            """, 'get', conn)
+                        SELECT ctm_first_name
+                                , ctm_last_name
+                                , ctm_phone
+                                , ctm_address1
+                                , ctm_address2
+                                , ctm_city
+                                , ctm_state
+                                , ctm_zipcode
+                                , Sum(Total_Items) as Total_Items
+                                , delivery_note
+                                , delivery_date
+                        FROM
+                            (SELECT o_id
+                                    , o_customer_id
+                                    , o_foodbank_id
+                                    , COUNT(TRIM('"' FROM CAST(json_extract(order_list, val) AS CHAR))) AS Total_Items
+                                    , delivery_note
+                                    , delivery_date
+                            FROM
+                            orders
+                            JOIN
+                            numbers
+                            ON JSON_LENGTH(order_list) >= n
+                            WHERE o_status = "pending"
+                            GROUP BY o_id) temp
+                        JOIN customer
+                        ON
+                        o_customer_id = ctm_id
+                        GROUP BY delivery_date;
+                                            """, 'get', conn)
 
             response['message'] = 'successful'
             response['result'] = items
@@ -444,7 +436,6 @@ class Deliveries(Resource):
             disconnect(conn)
 
 
-# INVENTORY QUERIES - ISSEI
 
 # QUERY : EXCESS INVENTORY
 class ExcessInventory(Resource):
@@ -455,23 +446,43 @@ class ExcessInventory(Resource):
             conn = connect()
 
             items = execute("""
-            SELECT tmp.foodbank_id, foodbank_name, food_id,item, averageOrder, qty, excess
+            SELECT tmp.foodbank_id
+                , fb_name
+                , food_id
+                ,fl_name
+                , averageOrder
+                , inv_qty
+                , excess
             FROM (
-                SELECT foodbank_id, item, excessList.food_id, averageOrder, qty, excess
+                SELECT foodbank_id
+                    , fl_name
+                    , excessList.food_id
+                    , averageOrder
+                    , inv_qty
+                    , excess
                 FROM (
-                    SELECT inventory.foodbank_id, food_id, averageOrder, qty, (qty - averageOrder) as excess from (
-                        SELECT foodbank_id, foodID, (count(foodID)/3) as averageOrder from(
-                            SELECT foodbank_id, trim('"' from cast(json_extract(list, val) as CHAR)) as foodID
-                            from orders
-                            join numbers on JSON_LENGTH(list) >= n
-                            where DATE(STR_TO_DATE(timestamp, '%c-%e-%Y %H:%i:%s')) < '2021-07-04') temp
-                        group by foodID, foodbank_id) ordercount
-                    inner join inventory on foodID = food_id and ordercount.foodbank_id = inventory.foodbank_id
-                    where qty > averageOrder)
+                    SELECT inventory.foodbank_id
+                        , food_id
+                        , averageOrder
+                        , inv_qty
+                        , (inv_qty - averageOrder) as excess from (
+                                    SELECT o_foodbank_id
+                        , foodID
+                        , (count(foodID)/3) as averageOrder from(
+                                        SELECT *
+                        , trim('"' from cast(json_extract(order_list, val) as CHAR)) AS foodID
+                            FROM orders
+                            JOIN numbers on JSON_LENGTH(order_list) >= n
+                            WHERE DATE(STR_TO_DATE(order_date, '%c-%e-%Y %H:%i:%s')) < '2021-07-04') temp
+                        GROUP BY foodID, o_foodbank_id) ordercount
+                    INNER JOIN inventory on foodID = food_id and ordercount.o_foodbank_id = inventory.foodbank_id
+                    WHERE inv_qty > averageOrder)
                 AS excessList
                 LEFT JOIN food_list ON food_list.food_id = excessList.food_id)
             AS tmp
-            LEFT JOIN foodbanks ON foodbanks.foodbank_id = tmp.foodbank_id;""", 'get', conn)
+            LEFT JOIN foodbanks ON foodbanks.foodbank_id = tmp.foodbank_id;
+
+            """, 'get', conn)
 
             response['message'] = 'successful'
             response['result'] = items
@@ -491,23 +502,41 @@ class LowInventory(Resource):
             conn = connect()
 
             items = execute("""
-            SELECT tmp.foodbank_id, foodbank_name, food_id,item, averageOrder, qty, excess
-            FROM (
-                SELECT foodbank_id, item, excessList.food_id, averageOrder, qty, excess
+                SELECT tmp.foodbank_id
+                    , fb_name
+                    , food_id
+                    ,fl_name
+                    , averageOrder
+                    , inv_qty
+                    , excess
                 FROM (
-                    SELECT inventory.foodbank_id, food_id, averageOrder, qty, (qty - averageOrder) as excess from (
-                        SELECT foodbank_id, foodID, (count(foodID)/3) as averageOrder from(
-                            SELECT foodbank_id, trim('"' from cast(json_extract(list, val) as CHAR)) as foodID
-                            from orders
-                            join numbers on JSON_LENGTH(list) >= n
-                            where DATE(STR_TO_DATE(timestamp, '%c-%e-%Y %H:%i:%s')) < '2021-07-04') temp
-                        group by foodID, foodbank_id) ordercount
-                    inner join inventory on foodID = food_id and ordercount.foodbank_id = inventory.foodbank_id
-                    where qty < averageOrder)
-                AS excessList
-                LEFT JOIN food_list ON food_list.food_id = excessList.food_id)
-            AS tmp
-            LEFT JOIN foodbanks ON foodbanks.foodbank_id = tmp.foodbank_id;""", 'get', conn)
+                    SELECT foodbank_id
+                        , fl_name
+                        , excessList.food_id
+                        , averageOrder
+                        , inv_qty
+                        , excess
+                    FROM (
+                        SELECT inventory.foodbank_id
+                            , food_id
+                            , averageOrder
+                            , inv_qty
+                            , (inv_qty - averageOrder) as excess from (
+                                        SELECT o_foodbank_id
+                            , foodID
+                            , (count(foodID)/3) as averageOrder from(
+                                            SELECT *
+                            , trim('"' from cast(json_extract(order_list, val) as CHAR)) AS foodID
+                                FROM orders
+                                JOIN numbers on JSON_LENGTH(order_list) >= n
+                                WHERE DATE(STR_TO_DATE(order_date, '%c-%e-%Y %H:%i:%s')) < '2021-07-04') temp
+                            GROUP BY foodID, o_foodbank_id) ordercount
+                        INNER JOIN inventory on foodID = food_id and ordercount.o_foodbank_id = inventory.foodbank_id
+                        WHERE inv_qty < averageOrder)
+                    AS excessList
+                    LEFT JOIN food_list ON food_list.food_id = excessList.food_id)
+                AS tmp
+                LEFT JOIN foodbanks ON foodbanks.foodbank_id = tmp.foodbank_id;""", 'get', conn)
 
             response['message'] = 'successful'
             response['result'] = items
@@ -529,19 +558,18 @@ class NoInventory(Resource):
 
             items = execute("""
             SELECT fl.foodbank_id
-                , foodbank_name
+                , fb_name
                 , fl.food_id
-                , item
-                , image
+                , fl_name
+                , fl_image
             FROM (
-                SELECT *
-                FROM foodbanks, food_list)
-                AS fl
+                SELECT * FROM foodbanks, food_list)
+            AS fl
             LEFT JOIN inventory i
             ON fl.foodbank_id = i.foodbank_id AND fl.food_id = i.food_id
-            WHERE qty = 0 OR qty IS NULL
-            ORDER BY fl.foodbank_id, fl.food_id
-            """, 'get', conn)
+            WHERE inv_qty IS NULL or inv_qty = 0
+            ORDER BY fl.foodbank_id, fl.food_id;
+                        """, 'get', conn)
 
             response['message'] = 'successful'
             response['result'] = items
@@ -563,8 +591,8 @@ class FoodImages(Resource):
 
             items = execute("""
             SELECT food_id
-                , item
-                , image
+                , fl_name
+                , fl_image
             FROM food_list;
             """, 'get', conn)
 
@@ -576,6 +604,8 @@ class FoodImages(Resource):
             raise BadRequest('Request failed, please try again later.')
         finally:
             disconnect(conn)
+
+
             
             
 # QUERY : Inventory
@@ -587,25 +617,26 @@ class Inventory(Resource):
             conn = connect()
 
             items = execute("""
-            SELECT foodbank_name
-                    , foodbank_id
+            SELECT fb_name
+                    , temp.foodbank_id
                     , temp.food_id
-                    , item AS food_name
-                    , SUM(qty) as Quantity
-                    , image
+                    , fl_name AS food_name
+                    , SUM(inv_qty) as Quantity
+                    , fl_image
             FROM
-                    (SELECT i.foodbank_id
-                            , foodbank_name
+                    (SELECT f.foodbank_id
+                            , fb_name
                             , food_id
-                            , qty
+                            , inv_qty
                     FROM inventory i
                     JOIN foodbanks f
                     ON i.foodbank_id = f.foodbank_id) temp
             JOIN food_list f
             ON f.food_id = temp.food_id
-            GROUP BY foodbank_id, food_id
-            ORDER BY foodbank_id;
-            """, 'get', conn)
+            GROUP BY temp.foodbank_id, f.food_id
+            ORDER BY temp.foodbank_id;
+
+                        """, 'get', conn)
 
             response['message'] = 'successful'
             response['result'] = items
@@ -615,9 +646,6 @@ class Inventory(Resource):
             raise BadRequest('Request failed, please try again later.')
         finally:
             disconnect(conn)
-
-
-# CUSTOMER QUERIES - WINSTON
 
 # Customer Order by Foodbank
 class CustomerOrderValue(Resource):
@@ -628,25 +656,26 @@ class CustomerOrderValue(Resource):
             conn = connect()
 
             items = execute("""
-            SELECT user_id
-                , first_name
-                , last_name
-                , t.foodbank_id
-                , foodbank_name
-                , round(sum(TotalQty*value),2) AS Total_Value
-                FROM (
-                    SELECT foodbank_id, user_id, foodID, count(foodID) AS TotalQty
+                    SELECT ctm_id
+                            , ctm_first_name
+                            , ctm_last_name
+                            , o_foodbank_id
+                            , fb_name
+                            , round(sum(TotalQty*fl_value_in_dollars),2) AS Total_Value
                     FROM (
-                        SELECT foodbank_id,
-                        order_id,
-                        user_id,
-                        trim('"' FROM cast(json_extract(list, val) as CHAR)) AS foodID
-                        FROM orders JOIN numbers ON JSON_LENGTH(list) >= n) AS temp
-                        group by temp.user_id, foodID, foodbank_id) as  t
-            JOIN food_list ON food_id = foodID
-            JOIN foodbanks f ON t.foodbank_id = f.foodbank_id
-            JOIN customer c ON t.user_id = c.customer_id
-            GROUP BY t.user_id, t.foodbank_id; """, 'get', conn)
+                            SELECT o_foodbank_id
+                                    , o_id
+                                    , o_customer_id
+                                    , trim('"' FROM cast(json_extract(order_list, val) as CHAR)) AS foodID
+                                    , count(trim('"' FROM cast(json_extract(order_list, val) as CHAR))) AS TotalQty
+                            FROM orders JOIN numbers ON JSON_LENGTH(order_list) >= n
+                            group by o_customer_id, foodID, o_foodbank_id) AS temp
+                                
+                    JOIN food_list ON food_id = foodID
+                    JOIN foodbanks f ON o_foodbank_id = foodbank_id
+                    JOIN customer  ON o_customer_id = ctm_id
+                    GROUP BY o_customer_id, o_foodbank_id;
+                    """, 'get', conn)
 
             response['message'] = 'successful'
             response['result'] = items
@@ -656,10 +685,6 @@ class CustomerOrderValue(Resource):
             raise BadRequest('Request failed, please try again later.')
         finally:
             disconnect(conn)
-
-
-
-
 
 # New Customers by Month by FoodBank
 class NewCustomersbyFoodbank(Resource):
@@ -670,26 +695,41 @@ class NewCustomersbyFoodbank(Resource):
             conn = connect()
 
             items = execute("""
-            SELECT MONTH(dates) AS signup_month
-	            , temp2.foodbank_id
-	            , foodbank_name
-                , COUNT(user_id) AS new_customers
-            FROM (
-	            SELECT foodbank_id 
-	            , user_id
-	            , DATE(STR_TO_DATE(temp.timestamp, '%c-%e-%Y %H: %i:%s')) AS dates
-	            FROM (
-		            SELECT  o1.foodbank_id
-				            , o1.user_id
-				            , o1.timestamp 
-		            FROM orders o1
-		            INNER JOIN orders o2 ON  o1.user_id = o2.user_id AND o1.foodbank_id = o2.foodbank_id
-		            GROUP BY user_id, timestamp ORDER BY o1.foodbank_id  ,o1.timestamp ASC) 
-                    AS temp
-	            GROUP BY foodbank_id, user_id ORDER BY foodbank_id) 
-                AS temp2
-            JOIN foodbanks fd ON temp2.foodbank_id = fd.foodbank_id 
-            GROUP BY signup_month, foodbank_name ORDER BY signup_month;""", 'get', conn)
+                    SELECT  foodbank_id
+                            , fb_name
+                            , MONTH(dates) AS signup_month
+                            , COUNT(o_customer_id) AS new_customers
+                    FROM (
+                            SELECT  o_foodbank_id
+                                    , o_customer_id
+                                    , DATE(STR_TO_DATE(min(order_date), '%c-%e-%Y %H: %i:%s')) AS dates 
+                            FROM orders 
+                            GROUP BY o_foodbank_id, o_customer_id
+                            ORDER BY o_foodbank_id  , order_date ASC) 
+                            AS temp
+                    JOIN foodbanks f ON o_foodbank_id = foodbank_id 
+                    GROUP BY signup_month, fb_name ORDER BY signup_month;""", 'get', conn)
+
+            response['message'] = 'successful'
+            response['result'] = items
+
+            return response, 200
+        except:
+            raise BadRequest('Request failed, please try again later.')
+        finally:
+            disconnect(conn)
+
+# Customer Info
+class Customers(Resource):
+    def get(self):
+
+        response = {}
+        items = {}
+        try:
+            conn = connect()
+
+            items = execute("""
+            SELECT * FROM customer;""", 'get', conn)
 
             response['message'] = 'successful'
             response['result'] = items
@@ -701,9 +741,7 @@ class NewCustomersbyFoodbank(Resource):
             disconnect(conn)
             
             
-# FOODBANK QUERIES - PRASHANT
-
-# Customer Order by Foodbank
+# Foodbank info
 class Foodbanks(Resource):
     def get(self):
         response = {}
@@ -724,7 +762,7 @@ class Foodbanks(Resource):
             disconnect(conn)
 
 # Foodbank Info
-class FoodbankInfo(Resource):
+class FoodBankInfoWithInventory(Resource):
     def get(self):
         response = {}
         items = {}
@@ -732,43 +770,50 @@ class FoodbankInfo(Resource):
             conn = connect()
 
             items = execute("""
-            SELECT foodbank_name
-		            , foodbank_id
-                    , tag_line
-                    , Address
-                    , monday
-                    , tuesday
-                    , wednesday
-                    , thursday
-                    , friday
-                    , saturday
-                    , sunday
-                    , temp.food_id
-                    , item AS food_name
-                    , SUM(qty) as Quantity
-                    , image
-            FROM
+                SELECT fb_name
+                        , temp.foodbank_id
+                        , fb_tag_line
+                        , foodbank_address
+                        , fb_monday_time
+                        , fb_tuesday_time
+                        , fb_wednesday_time
+                        , fb_thursday_time
+                        , fb_friday_time
+                        , fb_saturday_time
+                        , fb_sunday_time
+                        , temp.food_id
+                        , fl_name AS food_name
+                        , SUM(inv_qty) as quantity
+                        , fl_image
+                        , fl_amount
+                        , fl_value_in_dollars
+                        , fl_package_type
+                        , fl_brand
+                        , fl_food_type
+                        , fb_logo
+                FROM
                     (SELECT i.foodbank_id
-                            , foodbank_name
-                            , food_id
-                            , qty 
-                            , tag_line
-                            , concat(foodbank_address, SPACE(1) ,foodbank_address, SPACE(1), foodbank_city, SPACE(1), foodbank_state) as Address
-                            , monday
-                            , tuesday
-                            , wednesday
-                            , thursday
-                            , friday
-                            , saturday
-                            , sunday
+                            , fb_name
+                            , i.food_id
+                            , inv_qty 
+                            , fb_tag_line
+                            , concat(fb_address1, SPACE(1) ,fb_city, SPACE(1), fb_state, SPACE(1), fb_zipcode) as foodbank_address
+                            , fb_monday_time
+                            , fb_tuesday_time
+                            , fb_wednesday_time
+                            , fb_thursday_time
+                            , fb_friday_time
+                            , fb_saturday_time
+                            , fb_sunday_time
+                            , fb_logo
                     FROM 
                     inventory i
-                    JOIN foodbanks f 
-                    ON i.foodbank_id = f.foodbank_id) temp
-            JOIN food_list f 
-            ON f.food_id = temp.food_id
-            GROUP BY foodbank_id, food_id
-            ORDER BY foodbank_id;""", 'get', conn)
+                    JOIN foodbanks  f
+                    ON f.foodbank_id = i.foodbank_id) temp
+                JOIN food_list f
+                ON temp.food_id = f.food_id
+                GROUP BY temp.foodbank_id, f.food_id
+                ORDER BY temp.foodbank_id;""", 'get', conn)
 
             response['message'] = 'successful'
             response['result'] = items
@@ -812,28 +857,30 @@ class TemplateApi(Resource):
 
 # New APIs, uses connect() and disconnect()
 # Create new api template URL
-# DONOR QUERIES - ROHAN
+
 api.add_resource(TemplateApi, '/api/v2/templateapi')
 api.add_resource(DonorValuation, '/api/v2/donordonation')
 api.add_resource(ItemDonations, '/api/v2/itemdonations')
 api.add_resource(TypesOfFood, '/api/v2/foodtypes')
 api.add_resource(DonationbyDate, '/api/v2/donation')
-# ORDER QUERIES - PRAGYA
+
 api.add_resource(OrderStatus, '/api/v2/orderstatus')
 api.add_resource(CustomerAddresses, '/api/v2/customeraddresses')
 api.add_resource(Deliveries, '/api/v2/deliveries')
-# CUSTOMER QUERIES  - WINSTON
+
 api.add_resource(CustomerOrderValue, '/api/v2/customervalue')
 api.add_resource(NewCustomersbyFoodbank, '/api/v2/newcustomers')
-# INVENTORY QUERIES - ISSEI
+api.add_resource(Customers, '/api/v2/customerinfo')
+
 api.add_resource(ExcessInventory, '/api/v2/excess')
 api.add_resource(LowInventory, '/api/v2/low')
 api.add_resource(NoInventory, '/api/v2/zero')
 api.add_resource(FoodImages, '/api/v2/foodimages')
+
 api.add_resource(Inventory, '/api/v2/inventory')
-# FOODBANK QUERIES - PRASHANT
+
 api.add_resource(Foodbanks, '/api/v2/foodbanks')
-api.add_resource(FoodbankInfo, '/api/v2/foodbankinfo')
+api.add_resource(FoodBankInfoWithInventory, '/api/v2/foodbankinfo')
 
 
 # Run on below IP address and port
