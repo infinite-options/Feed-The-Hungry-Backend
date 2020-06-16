@@ -197,21 +197,27 @@ class DonorValuation(Resource):
             conn = connect()
 
             items = execute("""
-                        SELECT donation_foodbank_id
-                                , fb_name
-                                , d.donor_id
-                                , donor_first_name
-                                , donor_last_name
-                                , sum(total) totalDonation
+                        SELECT 
+                                d.donor_id,
+                                donor_first_name,
+                                donor_last_name,
+                                donation_date,
+                                donation_foodbank_id,
+                                fb_name,
+                                sum(total) totalDonation,
+                                sum(food_count) total_qty
                         FROM (
-                            SELECT donation_foodbank_id
-                                    , donor_id
-                                    , foodID
-                                    , round(count(foodID) * fl_value_in_dollars, 2) total
+                            SELECT donation_foodbank_id,
+                                    donor_id,
+                                    donation_date,
+                                    foodID,
+                                    count(foodID) AS food_count,
+                                    round(count(foodID) * fl_value_in_dollars, 2) total
                             FROM (
-                                    SELECT donation_foodbank_id
-                                        , donor_id
-                                        , trim('"' FROM cast(json_extract(donation_food_list, val) as CHAR)) AS foodID
+                                    SELECT donation_foodbank_id,
+                                        donor_id,
+                                        donation_date,
+                                        trim('"' FROM cast(json_extract(donation_food_list, val) as CHAR)) AS foodID
                                     FROM donations
                                     JOIN numbers ON JSON_LENGTH(donation_food_list) > n - 1) AS t
                             JOIN food_list ON food_id = foodID
@@ -243,7 +249,8 @@ class ItemDonations(Resource):
                             , fb_name
                             , foodID
                             , fl_name
-                            , TotalDonation
+                            , TotalDonation AS Donation_Qty
+                            , round(TotalDonation * fl_value_in_dollars, 2) totalDonation
                         FROM (
                                 SELECT donation_foodbank_id
                                     , trim('"' FROM cast(json_extract(donation_food_list, val) AS CHAR)) AS foodID
@@ -275,10 +282,11 @@ class TypesOfFood(Resource):
             conn = connect()
 
             items = execute("""
-                SELECT foodbank_id
+                SELECT  foodbank_id
                         , fb_name
                         , fl_type
-                        , count(fl_type) total
+                        , count(fl_type) AS Donation_Qty
+                        , round(count(fl_type) * fl_value_in_dollars, 2) AS totalDonation
                 FROM (
                     SELECT donation_foodbank_id
                         , trim('"' FROM cast(json_extract(donation_food_list, val) AS CHAR)) AS foodID
@@ -308,12 +316,13 @@ class DonationbyDate(Resource):
             conn = connect()
 
             items = execute("""
-                SELECT foodbank_id
+                SELECT  foodbank_id
                         , fb_name
                         , donations_date
                         , foodID
                         , quantity
                         , fl_name
+                        , round(quantity * fl_value_in_dollars, 2) AS totalDonation
                 FROM (
                     SELECT donation_foodbank_id
                         , date(STR_TO_DATE(donation_date, '%c-%e-%Y %H:%i:%s')) AS donations_date
@@ -824,6 +833,28 @@ class FoodBankInfoWithInventory(Resource):
         finally:
             disconnect(conn)
 
+class DonationsByDate(Resource):
+    def get(self):
+        response = {}
+        items = {}
+        try:
+            conn = connect()
+
+            items = execute(""" SELECT DATE(donation_date) AS date,
+                                    count(*) AS num_donations,
+                                    SUM(donation_qty*donation_food_value) AS total_value
+                                FROM Donations_new
+                                GROUP BY DATE(donation_date);""", 'get', conn)
+
+            response['message'] = 'successful'
+            response['result'] = items
+
+            return response, 200
+        except:
+            raise BadRequest('Request failed, please try again later.')
+        finally:
+            disconnect(conn)
+
 # -- Queries end here -------------------------------------------------------------------------------
 
 # Add Comment Here ie Shows All Meal Plan Info
@@ -881,6 +912,8 @@ api.add_resource(Inventory, '/api/v2/inventory')
 
 api.add_resource(Foodbanks, '/api/v2/foodbanks')
 api.add_resource(FoodBankInfoWithInventory, '/api/v2/foodbankinfo')
+
+api.add_resource(DonationsByDate, '/api/v2/donationsbydate')
 
 
 # Run on below IP address and port
