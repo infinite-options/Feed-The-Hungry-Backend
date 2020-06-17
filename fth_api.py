@@ -57,8 +57,8 @@ def RdsPw():
 # RDS PASSWORD
 # When deploying to Zappa, set RDS_PW equal to the password as a string
 # When pushing to GitHub, set RDS_PW equal to RdsPw()
-# RDS_PW = 'prashant'
-RDS_PW = RdsPw()
+RDS_PW = 'prashant'
+# RDS_PW = RdsPw()
 
 
 getToday = lambda: datetime.strftime(date.today(), "%Y-%m-%d")
@@ -780,45 +780,56 @@ class FoodBankInfoWithInventory(Resource):
 
             items = execute("""
                 SELECT fb_name
-                        , temp.foodbank_id
-                        , fb_tag_line
-                        , foodbank_address
-                        , fb_monday_time
-                        , fb_tuesday_time
-                        , fb_wednesday_time
-                        , fb_thursday_time
-                        , fb_friday_time
-                        , fb_saturday_time
-                        , fb_sunday_time
-                        , temp.food_id
-                        , fl_name AS food_name
-                        , SUM(inv_qty) as quantity
-                        , fl_image
-                        , fl_amount
-                        , fl_value_in_dollars
-                        , fl_package_type
-                        , fl_brand
-                        , fl_food_type
-                        , fb_logo
+                      , temp.foodbank_id
+                      , fb_tag_line
+                      , foodbank_address
+                      , fb_monday_time
+                      , fb_tuesday_time
+                      , fb_wednesday_time
+                      , fb_thursday_time
+                      , fb_friday_time
+                      , fb_saturday_time
+                      , fb_sunday_time
+                      , temp.food_id
+                      , fl_name AS food_name
+                      , SUM(inv_qty) as quantity
+                      , fl_image
+                      , fl_amount
+                      , fl_value_in_dollars
+                      , fl_package_type
+                      , fl_brand
+                      , fl_food_type
+                      , fb_logo
+                        , fb_total_limit
+                        , temp.limit
+                       ,  fb_longitude
+                       , fb_latitude
+                        , temp.delivery_pickup
                 FROM
-                    (SELECT i.foodbank_id
-                            , fb_name
-                            , i.food_id
-                            , inv_qty 
-                            , fb_tag_line
-                            , concat(fb_address1, SPACE(1) ,fb_city, SPACE(1), fb_state, SPACE(1), fb_zipcode) as foodbank_address
-                            , fb_monday_time
-                            , fb_tuesday_time
-                            , fb_wednesday_time
-                            , fb_thursday_time
-                            , fb_friday_time
-                            , fb_saturday_time
-                            , fb_sunday_time
-                            , fb_logo
-                    FROM 
-                    inventory i
-                    JOIN foodbanks  f
-                    ON f.foodbank_id = i.foodbank_id) temp
+                   (SELECT i.foodbank_id
+                         , fb_name
+                         , i.food_id
+                         , inv_qty
+                         , fb_tag_line
+                         , concat(fb_address1, SPACE(1) ,fb_city, SPACE(1), fb_state, SPACE(1), fb_zipcode) as foodbank_address
+                         , fb_monday_time
+                         , fb_tuesday_time
+                         , fb_wednesday_time
+                         , fb_thursday_time
+                         , fb_friday_time
+                         , fb_saturday_time
+                         , fb_sunday_time
+                         , fb_logo
+                           , fb_total_limit
+                           , i.limit
+                           ,  fb_longitude
+                           , fb_latitude
+                           , i.delivery_pickup
+
+                   FROM
+                   inventory i
+                   JOIN foodbanks  f
+                   ON f.foodbank_id = i.foodbank_id) temp
                 JOIN food_list f
                 ON temp.food_id = f.food_id
                 GROUP BY temp.foodbank_id, f.food_id
