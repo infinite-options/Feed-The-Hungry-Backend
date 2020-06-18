@@ -204,21 +204,14 @@ class DonorValuation(Resource):
                                 donation_date,
                                 donation_foodbank_id,
                                 fb_name,
-<<<<<<< HEAD
                                 sum(total) totalDonation,
                                 sum(food_count) total_qty
-=======
-                                sum(total) totalDonation
->>>>>>> delivery route
                         FROM (
                             SELECT donation_foodbank_id,
                                     donor_id,
                                     donation_date,
                                     foodID,
-<<<<<<< HEAD
                                     count(foodID) AS food_count,
-=======
->>>>>>> delivery route
                                     round(count(foodID) * fl_value_in_dollars, 2) total
                             FROM (
                                     SELECT donation_foodbank_id,
@@ -256,12 +249,8 @@ class ItemDonations(Resource):
                             , fb_name
                             , foodID
                             , fl_name
-<<<<<<< HEAD
                             , TotalDonation AS Donation_Qty
                             , round(TotalDonation * fl_value_in_dollars, 2) totalDonation
-=======
-                            , TotalDonation
->>>>>>> delivery route
                         FROM (
                                 SELECT donation_foodbank_id
                                     , trim('"' FROM cast(json_extract(donation_food_list, val) AS CHAR)) AS foodID
@@ -293,18 +282,11 @@ class TypesOfFood(Resource):
             conn = connect()
 
             items = execute("""
-<<<<<<< HEAD
                 SELECT  foodbank_id
                         , fb_name
                         , fl_type
                         , count(fl_type) AS Donation_Qty
                         , round(count(fl_type) * fl_value_in_dollars, 2) AS totalDonation
-=======
-                SELECT foodbank_id
-                        , fb_name
-                        , fl_type
-                        , count(fl_type) total
->>>>>>> delivery route
                 FROM (
                     SELECT donation_foodbank_id
                         , trim('"' FROM cast(json_extract(donation_food_list, val) AS CHAR)) AS foodID
@@ -334,20 +316,13 @@ class DonationbyDate(Resource):
             conn = connect()
 
             items = execute("""
-<<<<<<< HEAD
-                SELECT  foodbank_id
-=======
-                SELECT foodbank_id
->>>>>>> delivery route
+               SELECT  foodbank_id
                         , fb_name
                         , donations_date
                         , foodID
                         , quantity
                         , fl_name
-<<<<<<< HEAD
                         , round(quantity * fl_value_in_dollars, 2) AS totalDonation
-=======
->>>>>>> delivery route
                 FROM (
                     SELECT donation_foodbank_id
                         , date(STR_TO_DATE(donation_date, '%c-%e-%Y %H:%i:%s')) AS donations_date
@@ -367,13 +342,8 @@ class DonationbyDate(Resource):
             raise BadRequest('Request failed, please try again later.')
         finally:
             disconnect(conn)
-
             
-<<<<<<< HEAD
-
-=======
 #QUERY 5
->>>>>>> delivery route
 # Shows FoodBankID, Month, Completed Orders, Pending Orders, Total Orders
 class OrderStatus(Resource):
     def get(self):
@@ -809,10 +779,39 @@ class FoodBankInfoWithInventory(Resource):
             conn = connect()
 
             items = execute("""
-                SELECT fb_name
-                        , temp.foodbank_id
+               SELECT fb_name
+                    , temp.foodbank_id
+                    , fb_tag_line
+                    , foodbank_address
+                    , fb_monday_time
+                    , fb_tuesday_time
+                    , fb_wednesday_time
+                    , fb_thursday_time
+                    , fb_friday_time
+                    , fb_saturday_time
+                    , fb_sunday_time
+                    , temp.food_id
+                    , fl_name AS food_name
+                    , SUM(inv_qty) as quantity
+                    , fl_image
+                    , fl_amount
+                    , fl_value_in_dollars
+                    , fl_package_type
+                    , fl_brand
+                    , fl_food_type
+                    , fb_logo
+                        , fb_total_limit
+                        , temp.limit
+                    ,  fb_longitude
+                    , fb_latitude
+                        , temp.delivery_pickup
+                FROM
+                (SELECT i.foodbank_id
+                        , fb_name
+                        , i.food_id
+                        , inv_qty
                         , fb_tag_line
-                        , foodbank_address
+                        , concat(fb_address1, SPACE(1) ,fb_city, SPACE(1), fb_state, SPACE(1), fb_zipcode) as foodbank_address
                         , fb_monday_time
                         , fb_tuesday_time
                         , fb_wednesday_time
@@ -820,36 +819,17 @@ class FoodBankInfoWithInventory(Resource):
                         , fb_friday_time
                         , fb_saturday_time
                         , fb_sunday_time
-                        , temp.food_id
-                        , fl_name AS food_name
-                        , SUM(inv_qty) as quantity
-                        , fl_image
-                        , fl_amount
-                        , fl_value_in_dollars
-                        , fl_package_type
-                        , fl_brand
-                        , fl_food_type
                         , fb_logo
-                        , fl_unit
+                        , fb_total_limit
+                        , i.limit
+                        ,  fb_longitude
+                        , fb_latitude
+                        , i.delivery_pickup
+
                 FROM
-                    (SELECT i.foodbank_id
-                            , fb_name
-                            , i.food_id
-                            , inv_qty 
-                            , fb_tag_line
-                            , concat(fb_address1, SPACE(1) ,fb_city, SPACE(1), fb_state, SPACE(1), fb_zipcode) as foodbank_address
-                            , fb_monday_time
-                            , fb_tuesday_time
-                            , fb_wednesday_time
-                            , fb_thursday_time
-                            , fb_friday_time
-                            , fb_saturday_time
-                            , fb_sunday_time
-                            , fb_logo
-                    FROM 
-                    inventory i
-                    JOIN foodbanks  f
-                    ON f.foodbank_id = i.foodbank_id) temp
+                inventory i
+                JOIN foodbanks  f
+                ON f.foodbank_id = i.foodbank_id) temp
                 JOIN food_list f
                 ON temp.food_id = f.food_id
                 GROUP BY temp.foodbank_id, f.food_id
@@ -963,9 +943,6 @@ api.add_resource(FoodBankInfoWithInventory, '/api/v2/foodbankinfo')
 
 api.add_resource(DonationsByDate, '/api/v2/donationsbydate')
 api.add_resource(DeliveryRoute, '/api/v2/deliveryroute')
-
->>>>>>> delivery route
-
 
 # Run on below IP address and port
 # Make sure port number is unused (i.e. don't use numbers 0-1023)
