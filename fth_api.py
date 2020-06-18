@@ -854,7 +854,7 @@ class DonationsByDate(Resource):
             items = execute(""" SELECT DATE(donation_date) AS date,
                                     count(*) AS num_donations,
                                     SUM(donation_qty*donation_food_value) AS total_value
-                                FROM Donations_new
+                                FROM donations_new
                                 GROUP BY DATE(donation_date);""", 'get', conn)           
 
             response['message'] = 'successful'
