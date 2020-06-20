@@ -57,8 +57,8 @@ def RdsPw():
 # RDS PASSWORD
 # When deploying to Zappa, set RDS_PW equal to the password as a string
 # When pushing to GitHub, set RDS_PW equal to RdsPw()
-RDS_PW = 'prashant'
-# RDS_PW = RdsPw()
+# RDS_PW = 'prashant'
+RDS_PW = RdsPw()
 
 
 getToday = lambda: datetime.strftime(date.today(), "%Y-%m-%d")
@@ -1000,108 +1000,6 @@ class addOrder(Resource):
         finally:
             disconnect(conn)
 
-class addOrder2(Resource):
-    # HTTP method POST
-    def post(self):
-        response = {}
-        items = []
-        try:
-            conn = connect()
-
-            data = request.get_json()
-
-            customer_id = request.form['customer_id']
-            phone = request.form['phone']
-            street = request.form['street']
-            city = request.form['city']
-            state = request.form['state']
-            zipcode = request.form['zipcode']
-            total_cost = request.form['totalAmount']
-            delivery_note = request.form['delivery_note']
-            foodbankId = request.form['kitchen_id']
-            longitude = request.form["longitude"]
-            latitude = request.form["latitude"]
-            delivery_date = request.form["delivery_date"]
-            foodList = request.form['ordered_items']
-            address = street +" " + city + " " + state + " " + zipcode
-            status = 'pending'
-            timeStamp = (datetime.now()).strftime("%m-%d-%Y %H:%M:%S")
-
-
-            list = []
-
-            foods = eval(foodList)
-
-            for i in range(len(foods)):
-
-                meal_id = foods[i]["meal_id"]
-                quantity = foods[i]["qty"]
-                quantity = int(quantity)
-                for qty in range(quantity):
-                    list.append(meal_id)
-                # query = """
-                #             SELECT inv_qty 
-                #             FROM inventory 
-                #             WHERE food_id = \'"""+meal_id+"""\' AND foodbank_id = \'"""+foodbankId+"""\';
-                #         """
-                # print("ASKFN")
-                # original_quantity = execute(query, 'get', conn)
-                # print("ASKFN")
-                # original_quantity = original_quantity['result'][0]['inv_qty']
-                # print("ASKFN")
-            
-                # new_quantity = original_quantity - quantity
-                # query1 = """UPDATE inventory
-                #                 SET inv_qty = """ +str(new_quantity)+ """                       
-                #                 WHERE food_id = \'"""+meal_id+"""\' AND foodbank_id = \'"""+foodbankId+"""\';""";
-                # execute(query1, 'get', conn)
-
-            list = json.dumps(list)
-
-            queries = ["CALL get_order_id;"]
-
-            NewUserIDresponse = execute(queries[0], 'get', conn)
-            NewUserID = NewUserIDresponse['result'][0]['new_id']
-
-            queries.append( """ INSERT INTO orders
-                                (
-                                    o_id,
-                                    o_customer_id,
-                                    o_foodbank_id,
-                                    order_list,
-                                    o_status,
-                                    delivery_note,
-                                    delivery_date,
-                                    o_total_cost,
-                                    order_date,
-                                    o_latitude,
-                                    o_longitude
-                                   
-                                )
-                                VALUES
-                                (
-                                    \'""" + NewUserID + """\'
-                                    , \'""" + customer_id + """\'
-                                    , \'""" + foodbankId + """\'
-                                    , \'""" + list + """\'
-                                    , \'""" + status + """\'
-                                    ,  \'""" + delivery_note + """\'
-                                    , \'""" + delivery_date + """\'
-                                    , \'""" +  str(total_cost) + """\'
-                                    , \'""" + timeStamp + """\'
-                                    , \'""" +  str(latitude) + """\'
-                                    , \'""" +  str(longitude) + """\');""")
-
-            items = execute(queries[1], 'post', conn)
-            response['message'] = 'successful'
-            response['result'] = items
-
-            return response, 200
-        except:
-            print("Error happened while Inserting order")
-            raise BadRequest('Request failed, please try again later.')
-        finally:
-            disconnect(conn)
 
 # Define API routes
 
@@ -1140,7 +1038,7 @@ api.add_resource(FoodBankInfoWithInventory, '/api/v2/foodbankinfo')
 api.add_resource(DonationsByDate, '/api/v2/donationsbydate')
 api.add_resource(DeliveryRoute, '/api/v2/deliveryroute')
 api.add_resource(addOrder, '/api/v2/add_order')
-api.add_resource(addOrder2, '/api/v2/add_order2')
+
 
 # Run on below IP address and port
 # Make sure port number is unused (i.e. don't use numbers 0-1023)
