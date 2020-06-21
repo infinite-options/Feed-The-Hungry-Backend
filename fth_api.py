@@ -1074,6 +1074,109 @@ class addCustomer(Resource):
         finally:
             disconnect(conn)
 
+class addOrderNew(Resource):
+    # HTTP method POST
+    def post(self):
+        response = {}
+        items = []
+        try:
+            conn = connect()
+
+            data = request.get_json(force=True)
+
+            customer_id = data['customer_id']
+            phone = data['phone']
+            street = data['street']
+            city = data['city']
+            state = data['state']
+            zipcode = data['zipcode']
+            total_cost = data['totalAmount']
+            delivery_note = data['delivery_note']
+            foodbankId = data['kitchen_id']
+            longitude = data["longitude"]
+            latitude = data["latitude"]
+            delivery_date = data["delivery_date"]
+            foodList = data['ordered_items']
+            address = street +" " + city + " " + state + " " + zipcode
+            status = 'pending'
+            timeStamp = (datetime.now()).strftime("%m-%d-%Y %H:%M:%S")
+
+            list1 = []
+            list2 = []
+            print(foodList)
+            for i in range(len(foodList)):
+
+                meal_id = foodList[i]["meal_id"]
+                quantity = foodList[i]["qty"]
+                typeFood = foodList[i]["delivery/pickup"]
+                quantity = int(quantity)
+                for qty in range(quantity):
+                    if(typeFood == "delivery"):
+                        list1.append(meal_id)
+                    elif(typeFood == "pickup"):
+                        list2.append(meal_id)
+                query = """SELECT inv_qty FROM inventory WHERE food_id = \'"""+meal_id+"""\' AND foodbank_id = \'"""+foodbankId+"""\';"""
+                original_quantity = execute(query, 'get', conn)
+                original_quantity = original_quantity['result'][0]['inv_qty']
+            
+                new_quantity = original_quantity - quantity
+                query1 = """UPDATE inventory
+                                SET inv_qty = """ +str(new_quantity)+ """                       
+                                WHERE food_id = \'"""+meal_id+"""\' AND foodbank_id = \'"""+foodbankId+"""\';""";
+                execute(query1, 'get', conn)
+
+            list1 = json.dumps(list1)
+            list2 = json.dumps(list2)
+            print(list2)
+
+            queries = ["CALL new_order;"]
+
+            NewUserIDresponse = execute(queries[0], 'get', conn)
+            NewUserID = NewUserIDresponse['result'][0]['new_id']
+
+            queries.append( """ INSERT INTO ordersTest
+                                (
+                                    o_id,
+                                    o_customer_id,
+                                    o_foodbank_id,
+                                    order_list_delivery,
+                                    order_list_pickup,
+                                    o_status,
+                                    delivery_note,
+                                    delivery_date,
+                                    o_total_cost,
+                                    order_date,
+                                    o_latitude,
+                                    o_longitude
+                                   
+                                )
+                                VALUES
+                                (
+                                    \'""" + NewUserID + """\'
+                                    , \'""" + customer_id + """\'
+                                    , \'""" + foodbankId + """\'
+                                    , \'""" + list1 + """\'
+                                    , \'""" + list2 + """\'
+                                    , \'""" + status + """\'
+                                    ,  \'""" + delivery_note + """\'
+                                    , \'""" + delivery_date + """\'
+                                    , \'""" +  str(total_cost) + """\'
+                                    , \'""" + timeStamp + """\'
+                                    , \'""" +  str(latitude) + """\'
+                                    , \'""" +  str(longitude) + """\');""")
+
+            items = execute(queries[1], 'post', conn)
+            response['message'] = 'successful'
+            response['result'] = NewUserID
+
+            return response, 200
+        except:
+            print("Error happened while Inserting order")
+            raise BadRequest('Request failed, please try again later.')
+        finally:
+
+            conn = connect()
+            disconnect(conn)
 
 
 # Define API routes
@@ -1114,6 +1217,7 @@ api.add_resource(DonationsByDate, '/api/v2/donationsbydate')
 api.add_resource(DeliveryRoute, '/api/v2/deliveryroute')
 api.add_resource(addOrder, '/api/v2/add_order')
 api.add_resource(addCustomer, '/api/v2/add_customer')
+api.add_resource(addOrderNew, '/api/v2/add_order_new')
 
 # Run on below IP address and port
 # Make sure port number is unused (i.e. don't use numbers 0-1023)
