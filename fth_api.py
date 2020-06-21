@@ -1006,6 +1006,75 @@ class addOrder(Resource):
         finally:
             disconnect(conn)
 
+class addCustomer(Resource):
+    # HTTP method POST
+    def post(self):
+        response = {}
+        items = []
+        try:
+
+            conn = connect()
+
+            data = request.get_json(force=True)
+
+            first_name = data['first_name']
+            last_name = data['last_name']
+            address1 = data['address1']
+            address2 = data['address2']
+            city = data['city']
+            state = data['state']
+            zipcode = data['zipcode']
+            phone = data['phone']
+            email = data['email']
+            # address = street +" " + city + " " + state + " " + zipcode
+            timeStamp = (datetime.now()).strftime("%m-%d-%Y %H:%M:%S")
+
+
+            queries = ["CALL get_customer_id;"]
+
+            NewUserIDresponse = execute(queries[0], 'get', conn)
+            NewUserID = NewUserIDresponse['result'][0]['new_id']
+
+            queries.append( """ INSERT INTO customer
+                                (
+                                    ctm_id,
+                                    ctm_first_name,
+                                    ctm_last_name,
+                                    ctm_address1,
+                                    ctm_address2,
+                                    ctm_city,
+                                    ctm_state,
+                                    ctm_zipcode,
+                                    ctm_phone,
+                                    ctm_email,
+                                    ctm_join_date
+                                )
+                                VALUES
+                                (
+                                    \'""" + NewUserID + """\'
+                                    , \'""" + first_name + """\'
+                                    , \'""" + last_name + """\'
+                                    , \'""" + address1 + """\'
+                                    , \'""" + address2 + """\'
+                                    ,  \'""" + city + """\'
+                                    , \'""" + state + """\'
+                                    , \'""" +  zipcode + """\'
+                                    , \'""" + phone + """\'
+                                    , \'""" +  email + """\'
+                                    , \'""" +  timeStamp + """\');""")
+
+            items = execute(queries[1], 'post', conn)
+            response['message'] = 'successful'
+            response['result'] = items
+
+            return response, 200
+        except:
+            print("Error happened while Inserting new customer")
+            raise BadRequest('Request failed, please try again later.')
+        finally:
+            disconnect(conn)
+
+
 
 # Define API routes
 
@@ -1044,7 +1113,7 @@ api.add_resource(FoodBankInfoWithInventory, '/api/v2/foodbankinfo')
 api.add_resource(DonationsByDate, '/api/v2/donationsbydate')
 api.add_resource(DeliveryRoute, '/api/v2/deliveryroute')
 api.add_resource(addOrder, '/api/v2/add_order')
-
+api.add_resource(addCustomer, '/api/v2/add_customer')
 
 # Run on below IP address and port
 # Make sure port number is unused (i.e. don't use numbers 0-1023)
