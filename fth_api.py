@@ -449,7 +449,58 @@ class Deliveries(Resource):
         finally:
             disconnect(conn)
 
+class OrderDetails(Resource):
+    def get(self):
+        response = {}
+        items = {}
+        try:
+            conn = connect()
 
+            items = execute("""
+                        SELECT concat(IFNULL(ctm_first_name, ''), SPACE(1), IFNULL(ctm_last_name, '')) as customer_name
+                                , ctm_phone
+                                , concat(IFNULL(ctm_address1, ''), SPACE(1), IFNULL(ctm_address2, ''), SPACE(1), IFNULL(ctm_city, ''), SPACE(1), IFNULL(ctm_state,''), SPACE(1), IFNULL(fb_zipcode, '')) as customer_address
+                                , sum(Total_Items) as Total_Items
+                                , round(sum(Total_Items*fl_value_in_dollars),2) AS Total_Value
+                                , fb_name
+                                , concat(fb_address1, SPACE(1) ,fb_city, SPACE(1), fb_state, SPACE(1), fb_zipcode) as foodbank_address
+                                , o_delivery_pickup
+                                , fb_latitude
+                                , fb_longitude
+                                , delivery_note
+                                , delivery_date
+                                , order_date
+
+                        FROM
+                            (SELECT o_id
+                                    , o_customer_id
+                                    , o_foodbank_id
+                                    , COUNT(TRIM('"' FROM CAST(json_extract(order_list, val) AS CHAR))) AS Total_Items
+                                    , trim('"' FROM cast(json_extract(order_list, val) as CHAR)) AS foodID
+                                    , delivery_note
+                                    , delivery_date
+                                    , o_delivery_pickup
+                                    , order_date
+                            FROM
+                            orders
+                            JOIN
+                            numbers
+                            ON JSON_LENGTH(order_list) >= n
+                            GROUP BY o_id, foodID, o_foodbank_id) temp
+                        JOIN customer ON o_customer_id = ctm_id
+                        JOIN foodbanks ON o_foodbank_id = foodbank_id
+                        JOIN food_list ON food_id = foodID
+                        GROUP BY o_id;
+                                            """, 'get', conn)
+
+            response['message'] = 'successful'
+            response['result'] = items
+
+            return response, 200
+        except:
+            raise BadRequest('Request failed, please try again later.')
+        finally:
+            disconnect(conn)
 
 # QUERY : EXCESS INVENTORY
 class ExcessInventory(Resource):
@@ -1006,6 +1057,74 @@ class addOrder(Resource):
         finally:
             disconnect(conn)
 
+class addCustomer(Resource):
+    # HTTP method POST
+    def post(self):
+        response = {}
+        items = []
+        try:
+
+            conn = connect()
+
+            data = request.get_json(force=True)
+
+            first_name = data['first_name']
+            last_name = data['last_name']
+            address1 = data['address1']
+            address2 = data['address2']
+            city = data['city']
+            state = data['state']
+            zipcode = data['zipcode']
+            phone = data['phone']
+            email = data['email']
+            # address = street +" " + city + " " + state + " " + zipcode
+            timeStamp = (datetime.now()).strftime("%m-%d-%Y %H:%M:%S")
+
+
+            queries = ["CALL get_customer_id;"]
+
+            NewUserIDresponse = execute(queries[0], 'get', conn)
+            NewUserID = NewUserIDresponse['result'][0]['new_id']
+
+            queries.append( """ INSERT INTO customer
+                                (
+                                    ctm_id,
+                                    ctm_first_name,
+                                    ctm_last_name,
+                                    ctm_address1,
+                                    ctm_address2,
+                                    ctm_city,
+                                    ctm_state,
+                                    ctm_zipcode,
+                                    ctm_phone,
+                                    ctm_email,
+                                    ctm_join_date
+                                )
+                                VALUES
+                                (
+                                    \'""" + NewUserID + """\'
+                                    , \'""" + first_name + """\'
+                                    , \'""" + last_name + """\'
+                                    , \'""" + address1 + """\'
+                                    , \'""" + address2 + """\'
+                                    ,  \'""" + city + """\'
+                                    , \'""" + state + """\'
+                                    , \'""" +  zipcode + """\'
+                                    , \'""" + phone + """\'
+                                    , \'""" +  email + """\'
+                                    , \'""" +  timeStamp + """\');""")
+
+            items = execute(queries[1], 'post', conn)
+            response['message'] = 'successful'
+            response['result'] = items
+
+            return response, 200
+        except:
+            print("Error happened while Inserting new customer")
+            raise BadRequest('Request failed, please try again later.')
+        finally:
+            disconnect(conn)
+
 class addOrderNew(Resource):
     # HTTP method POST
     def post(self):
@@ -1150,9 +1269,9 @@ api.add_resource(FoodBankInfoWithInventory, '/api/v2/foodbankinfo')
 api.add_resource(DonationsByDate, '/api/v2/donationsbydate')
 api.add_resource(DeliveryRoute, '/api/v2/deliveryroute')
 api.add_resource(addOrder, '/api/v2/add_order')
+api.add_resource(addCustomer, '/api/v2/add_customer')
 api.add_resource(addOrderNew, '/api/v2/add_order_new')
-
-
+api.add_resource(OrderDetails, '/api/v2/orderdetails')
 
 # Run on below IP address and port
 # Make sure port number is unused (i.e. don't use numbers 0-1023)
