@@ -1357,6 +1357,32 @@ class SignUp(Resource):
             disconnect(conn)
 
 
+# confirmation page
+@app.route('/api/v2/confirm/<token>/<hashed>', methods=['GET'])
+def confirm(token, hashed):
+    try:
+        email = json.loads(token)  # max_age = 86400 = 1 day
+        # marking email confirmed in database, then...
+        conn = connect()
+        query = """UPDATE customer SET ctm_email_verify = 1 WHERE ctm_email = \'""" + \
+                email + """\';"""
+        update = execute(query, 'post', conn)
+        if update.get('code') == 281:
+            # redirect to login page
+            # Mofify for FTH
+            return redirect('http://preptoyourdoor.netlify.app/login/{}/{}'.format(email, hashed))
+        else:
+            print("Error happened while confirming an email address.")
+            error = "Confirm error."
+            err_code = 401  # Verification code is incorrect
+            return error, err_code
+    except (SignatureExpired, BadTimeSignature) as err:
+        status = 403  # forbidden
+        return str(err), status
+    finally:
+        disconnect(conn)
+
+
 # Define API routes
 
 # Still uses getRdsConn()
