@@ -7,14 +7,18 @@
 #README:  if there are errors, make sure you have all requirements are loaded
 #pip3 install flask
 #pip3 install flask_restful
+#pip3 install flask_mail
 #pip3 install flask_cors
 #pip3 install Werkzeug
 #pip3 install pymysql
 #pip3 install python-dateutil
 
 
-from flask import Flask, request, render_template
+from flask import Flask, request, render_template, url_for, redirect
 from flask_restful import Resource, Api
+from flask_mail import Mail, Message  # used for email
+# used for serializer email and error handling
+from itsdangerous import URLSafeTimedSerializer, SignatureExpired, BadTimeSignature
 from flask_cors import CORS
 
 from werkzeug.exceptions import BadRequest, NotFound
@@ -25,10 +29,12 @@ from datetime import datetime, date, timedelta
 from hashlib import sha512
 from math import ceil
 
+import string
 import decimal
 import sys
 import json
 import pymysql
+import requests
 
 RDS_HOST = 'pm-mysqldb.cxjnrciilyjq.us-west-1.rds.amazonaws.com'
 #RDS_HOST = 'localhost'
@@ -44,6 +50,20 @@ cors = CORS(app, resources={r'/api/*': {'origins': '*'}})
 
 # Set this to false when deploying to live application
 app.config['DEBUG'] = True
+
+# Adding for email testing
+app.config['MAIL_SERVER'] = 'smtp.gmail.com'
+app.config['MAIL_PORT'] = 465
+app.config['MAIL_USERNAME'] = 'ptydtesting@gmail.com'
+app.config['MAIL_PASSWORD'] = 'infiniteoptions0422'
+app.config['MAIL_DEFAULT_SENDER'] = 'ptydtesting@gmail.com'
+app.config['MAIL_USE_TLS'] = False
+app.config['MAIL_USE_SSL'] = True
+# app.config['MAIL_DEBUG'] = True
+# app.config['MAIL_SUPPRESS_SEND'] = False
+# app.config['TESTING'] = False
+
+mail = Mail(app)
 
 # API
 api = Api(app)
@@ -1229,6 +1249,190 @@ class addOrderNew(Resource):
             conn = connect()
             disconnect(conn)
 
+class SignUp(Resource):
+    # HTTP method POST
+    def post(self):
+        response = {}
+        items = []
+        try:
+            conn = connect()
+            data = request.get_json(force=True)
+
+            first_name = data['first_name']
+            last_name = data['last_name']
+            address1 = data['address1']
+            address2 = data['address2']
+            city = data['city']
+            state = data['state']
+            zipcode = data['zipcode']
+            phone = data['phone']
+            email = data['email']
+            timeStamp = (datetime.now()).strftime("%m-%d-%Y %H:%M:%S")
+
+            queries = ["CALL get_customer_id;"]
+
+            NewUserIDresponse = execute(queries[0], 'get', conn)
+            NewUserID = NewUserIDresponse['result'][0]['new_id']
+
+            queries.append( """ INSERT INTO customer
+                                (
+                                    ctm_id,
+                                    ctm_first_name,
+                                    ctm_last_name,
+                                    ctm_address1,
+                                    ctm_address2,
+                                    ctm_city,
+                                    ctm_state,
+                                    ctm_zipcode,
+                                    ctm_phone,
+                                    ctm_email,
+                                    ctm_join_date
+                                )
+                                VALUES
+                                (
+                                    \'""" + NewUserID + """\'
+                                    , \'""" + first_name + """\'
+                                    , \'""" + last_name + """\'
+                                    , \'""" + address1 + """\'
+                                    , \'""" + address2 + """\'
+                                    ,  \'""" + city + """\'
+                                    , \'""" + state + """\'
+                                    , \'""" +  zipcode + """\'
+                                    , \'""" + phone + """\'
+                                    , \'""" +  email + """\'
+                                    , \'""" +  timeStamp + """\');""")
+
+            DatetimeStamp = getNow()
+            salt = getNow()
+            hashed = sha512((data['password'] + salt).encode()).hexdigest()
+
+            queries.append("""
+                INSERT INTO passwords
+                (
+                    ctm_id,
+                    pwd_hash,
+                    pwd_salt,
+                    pwd_hash_algorithm,
+                    pwd_created,
+                    pwd_last_changed
+                )
+                VALUES
+                (
+                    \'""" + NewUserID + """\',
+                    \'""" + hashed + """\',
+                    \'""" + salt + """\',
+                    \'SHA512\',
+                    \'""" + DatetimeStamp + """\',
+                    \'""" + DatetimeStamp + "\');")
+
+            usnInsert = execute(queries[1], 'post', conn)
+
+            if usnInsert['code'] != 281:
+                response['message'] = 'Request failed.'
+                response['result'] = 'Internal server error (Customer write).'
+
+                query = """
+                    SELECT ctm_email FROM customer
+                    WHERE ctm_email = \'""" + email + "\';"
+
+                emailExists = execute(query, 'get', conn)
+
+                if emailExists['code'] == 280 and len(emailExists['result']) > 0:
+                    statusCode = 400
+                    response['result'] = 'Email address taken.'
+                else:
+                    statusCode = 500
+                    response['result'] = 'Internal server error.'
+
+                response['code'] = usnInsert['code']
+                return response, statusCode
+
+            pwInsert = execute(queries[2], 'post', conn)
+
+            if pwInsert['code'] != 281:
+                response['message'] = 'Request failed.'
+                response['result'] = 'Internal server error (Password write).'
+                response['code'] = pwInsert['code']
+
+                # Make sure to delete signed up user
+                # New user was added to db from first MySQL cmd
+                query = """
+                    DELETE FROM customer
+                    WHERE ctm_email = \'""" + email + "\';"
+
+                deleteUser = execute(query, 'post', conn)
+
+                # Handle error for successful user account signup
+                # but failed password storing to the db
+                if deleteUser['code'] != 281:
+                    response[
+                        'WARNING'] = "This user was signed up to the database but did not properly store their password. Their account cannot be logged into and must be reset by a system administrator."
+                    response['code'] = 590
+
+                return response, 500
+
+            # this part using for testing email verification
+
+            print("AAAAA")
+
+            token = json.dumps(email)
+            print("AAAAA")
+            msg = Message("Email Verification",
+                          sender='ptydtesting@gmail.com', recipients=[email])
+
+            print(token)
+            print(hashed)
+            link = url_for('confirm', token=token,
+                           hashed=hashed, _external=True)
+            print("AAAAA")
+            msg.body = "Click on the link {} to verify your email address.".format(
+                link)
+            print("AAAAA")
+
+            mail.send(msg)
+            # email verification testing s ended here...
+
+            response['message'] = 'Request successful. An email has been sent and need to verify.'
+            response['code'] = usnInsert['code']
+            response['first_name'] = first_name
+            response['user_uid'] = NewUserID
+
+            
+
+            print(response)
+            return response, 200
+        except:
+            print("Error happened while Sign Up")
+            raise BadRequest('Request failed, please try again later.')
+        finally:
+            disconnect(conn)
+
+
+# confirmation page
+@app.route('/api/v2/confirm/<token>/<hashed>', methods=['GET'])
+def confirm(token, hashed):
+    try:
+        email = json.loads(token)  # max_age = 86400 = 1 day
+        # marking email confirmed in database, then...
+        conn = connect()
+        query = """UPDATE customer SET ctm_email_verify = 1 WHERE ctm_email = \'""" + \
+                email + """\';"""
+        update = execute(query, 'post', conn)
+        if update.get('code') == 281:
+            # redirect to login page
+            # Mofify for FTH
+            return redirect('http://preptoyourdoor.netlify.app/login/{}/{}'.format(email, hashed))
+        else:
+            print("Error happened while confirming an email address.")
+            error = "Confirm error."
+            err_code = 401  # Verification code is incorrect
+            return error, err_code
+    except (SignatureExpired, BadTimeSignature) as err:
+        status = 403  # forbidden
+        return str(err), status
+    finally:
+        disconnect(conn)
+
 
 
 
@@ -1271,6 +1475,7 @@ api.add_resource(DeliveryRoute, '/api/v2/deliveryroute')
 api.add_resource(addOrder, '/api/v2/add_order')
 api.add_resource(addCustomer, '/api/v2/add_customer')
 api.add_resource(addOrderNew, '/api/v2/add_order_new')
+api.add_resource(SignUp, '/api/v2/signup')
 api.add_resource(OrderDetails, '/api/v2/orderdetails')
 
 # Run on below IP address and port

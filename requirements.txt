@@ -1,7 +1,9 @@
 zappa
 flask
 flask_restful
+flask_mail
 flask_cors
 Werkzeug
 pymysql
 python-dateutil
+itsdangerous
