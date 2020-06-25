@@ -1428,12 +1428,19 @@ def confirm(token, hashed):
     finally:
         disconnect(conn)
 
+def ipVersion(ip):
+    if '.' in ip:
+        return 'IPv4'
+    elif ':' in ip:
+        return 'IPv6'
+    else:
+        return 'unknown'
 
 def LogLoginAttempt(data, conn):
     try:
         response = {}
 
-        login_id_res = execute("CALL get_login_id;", 'get', conn)
+        login_id_res = execute("CALL get_login_log_id;", 'get', conn)
         login_id = login_id_res['result'][0]['new_id']
         # Generate random session ID
 
@@ -1442,22 +1449,22 @@ def LogLoginAttempt(data, conn):
         else:
             session_id = "NULL"
         sql = """
-            INSERT INTO ptyd_login (
+            INSERT INTO login_log (
                 login_attempt
                 , login_password
-                , login_user_uid
+                , login_ctm_id
                 , ip_address
                 , ip_version
                 , browser_type
                 , attempt_datetime
-                , successBool
+                , success_bool
                 , session_id
             )
             VALUES
             (
                 \'""" + login_id + """\'
                 , \'""" + data["attempt_hash"] + """\'
-                , \'""" + data["user_uid"] + """\'
+                , \'""" + data["ctm_id"] + """\'
                 , \'""" + data["ip_address"] + """\'
                 , \'""" + ipVersion(data["ip_address"]) + """\'
                 , \'""" + data["browser_type"] + """\'
@@ -1474,7 +1481,6 @@ def LogLoginAttempt(data, conn):
 
         response['session_id'] = session_id
         response['login_id'] = login_id
-        print(log)
 
         return response
     except:
@@ -1525,6 +1531,7 @@ class Login(Resource):
             queries.append(
                 "SELECT * FROM passwords WHERE ctm_id = \'" + user_uid + "\';")
             password_response = execute(queries[1], 'get', conn)
+            salt = password_response['result'][0]['pwd_salt']
 
             hashed = sha512((password + salt).encode()).hexdigest()
 
@@ -1543,20 +1550,23 @@ class Login(Resource):
                 httpCode = 401
 
 
-            # login_attempt = {
-            #     'user_uid': user_uid,
-            #     'attempt_hash': accPass,
-            #     'ip_address': data['ip_address'],
-            #     'browser_type': data['browser_type'],
-            # }
+            login_attempt = {
+                'ctm_id': user_uid,
+                'attempt_hash': hashed,
+                'ip_address': "68.78.203.151",
+                'browser_type': "Chrome",
+            }
 
-            # if response['auth_success']:
-            #     login_attempt['auth_success'] = 'TRUE'
-            # else:
-            #     login_attempt['auth_success'] = 'FALSE'
+            # 'ip_address': data['ip_address'],
+            # 'browser_type': data['browser_type'],
 
-            # response['login_attempt_log'] = LogLoginAttempt(
-            #     login_attempt, conn)
+            if response['auth_success']:
+                login_attempt['auth_success'] = 'TRUE'
+            else:
+                login_attempt['auth_success'] = 'FALSE'
+
+            response['login_attempt_log'] = LogLoginAttempt(
+                login_attempt, conn)
 
             return response, httpCode
         except:
