@@ -1564,6 +1564,106 @@ class Login(Resource):
         finally:
             disconnect(conn)
 
+class FoodBankInfoWithInventoryNew(Resource):
+    def get(self, foodbank):
+        response = {}
+        items = {}
+        try:
+            conn = connect()
+
+            items = execute("""
+               Select fb_name
+                    , t.foodbank_id
+                    , fb_tag_line
+                    , foodbank_address
+                    , fb_monday_time
+                    , fb_tuesday_time
+                    , fb_wednesday_time
+                    , fb_thursday_time
+                    , fb_friday_time
+                    , fb_saturday_time
+                    , fb_sunday_time
+                    , t.food_id
+                    , food_name
+                    , quantity
+                    , fl_image
+                    , fl_amount
+                    , fl_value_in_dollars
+                    , fl_package_type
+                    , fl_brand
+                    , fl_food_type
+                    , fb_logo
+					, fb_total_limit
+					, t.limit
+                    ,  fb_longitude
+                    , fb_latitude
+					, t.delivery_pickup from 
+                    (SELECT fb_name
+                                        , temp.foodbank_id
+                                        , fb_tag_line
+                                        , foodbank_address
+                                        , fb_monday_time
+                                        , fb_tuesday_time
+                                        , fb_wednesday_time
+                                        , fb_thursday_time
+                                        , fb_friday_time
+                                        , fb_saturday_time
+                                        , fb_sunday_time
+                                        , temp.food_id
+                                        , fl_name AS food_name
+                                        , SUM(inv_qty) as quantity
+                                        , fl_image
+                                        , fl_amount
+                                        , fl_value_in_dollars
+                                        , fl_package_type
+                                        , fl_brand
+                                        , fl_food_type
+                                        , fb_logo
+                                            , fb_total_limit
+                                            , temp.limit
+                                        ,  fb_longitude
+                                        , fb_latitude
+                                            , temp.delivery_pickup
+                                    FROM
+                                    (SELECT i.foodbank_id
+                                            , fb_name
+                                            , i.food_id
+                                            , inv_qty
+                                            , fb_tag_line
+                                            , concat(fb_address1, SPACE(1) ,fb_city, SPACE(1), fb_state, SPACE(1), fb_zipcode) as foodbank_address
+                                            , fb_monday_time
+                                            , fb_tuesday_time
+                                            , fb_wednesday_time
+                                            , fb_thursday_time
+                                            , fb_friday_time
+                                            , fb_saturday_time
+                                            , fb_sunday_time
+                                            , fb_logo
+                                            , fb_total_limit
+                                            , i.limit
+                                            ,  fb_longitude
+                                            , fb_latitude
+                                            , i.delivery_pickup
+
+                                    FROM
+                                    inventory i
+                                    JOIN foodbanks  f
+                                    ON f.foodbank_id = i.foodbank_id) temp
+                                    JOIN food_list f
+                                    ON temp.food_id = f.food_id
+                                    GROUP BY temp.foodbank_id, f.food_id
+                                    ORDER BY temp.foodbank_id) t
+                                    where t.foodbank_id = \'""" +  foodbank + """\' and quantity > 0;""", 'get', conn)
+
+            response['message'] = 'successful'
+            response['result'] = items
+
+            return response, 200
+        except:
+            raise BadRequest('Request failed, please try again later.')
+        finally:
+            disconnect(conn)
+
 
 # Define API routes
 
@@ -1607,6 +1707,8 @@ api.add_resource(addOrderNew, '/api/v2/add_order_new')
 api.add_resource(SignUp, '/api/v2/signup')
 api.add_resource(OrderDetails, '/api/v2/orderdetails')
 api.add_resource(Login, '/api/v2/login')
+api.add_resource(FoodBankInfoWithInventoryNew, '/api/v2/foodbankinfonew/<foodbank>')
+
 
 # Run on below IP address and port
 # Make sure port number is unused (i.e. don't use numbers 0-1023)
