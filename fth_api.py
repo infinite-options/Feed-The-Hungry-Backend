@@ -1373,10 +1373,7 @@ class SignUp(Resource):
 
             # this part using for testing email verification
 
-            print("AAAAA")
-
             token = json.dumps(email)
-            print("AAAAA")
             msg = Message("Email Verification",
                           sender='ptydtesting@gmail.com', recipients=[email])
 
@@ -1384,10 +1381,8 @@ class SignUp(Resource):
             print(hashed)
             link = url_for('confirm', token=token,
                            hashed=hashed, _external=True)
-            print("AAAAA")
             msg.body = "Click on the link {} to verify your email address.".format(
                 link)
-            print("AAAAA")
 
             mail.send(msg)
             # email verification testing s ended here...
@@ -1434,6 +1429,140 @@ def confirm(token, hashed):
         disconnect(conn)
 
 
+def LogLoginAttempt(data, conn):
+    try:
+        response = {}
+
+        login_id_res = execute("CALL get_login_id;", 'get', conn)
+        login_id = login_id_res['result'][0]['new_id']
+        # Generate random session ID
+
+        if data["auth_success"] is "TRUE":
+            session_id = "\'" + sha512(getNow().encode()).hexdigest() + "\'"
+        else:
+            session_id = "NULL"
+        sql = """
+            INSERT INTO ptyd_login (
+                login_attempt
+                , login_password
+                , login_user_uid
+                , ip_address
+                , ip_version
+                , browser_type
+                , attempt_datetime
+                , successBool
+                , session_id
+            )
+            VALUES
+            (
+                \'""" + login_id + """\'
+                , \'""" + data["attempt_hash"] + """\'
+                , \'""" + data["user_uid"] + """\'
+                , \'""" + data["ip_address"] + """\'
+                , \'""" + ipVersion(data["ip_address"]) + """\'
+                , \'""" + data["browser_type"] + """\'
+                , \'""" + getNow() + """\'
+                , \'""" + data["auth_success"] + """\'
+                , """ + session_id + """
+            );
+            """
+        log = execute(sql, 'post', conn)
+
+        if session_id != "NULL":
+            session_id = session_id[1:-1]
+            print(session_id)
+
+        response['session_id'] = session_id
+        response['login_id'] = login_id
+        print(log)
+
+        return response
+    except:
+        print("Could not log login attempt.")
+        return None
+
+
+class Login(Resource):
+
+    def post(self):
+        response = {}
+        try:
+            conn = connect()
+            data = request.get_json(force=True)
+
+            email = data['email']
+            password = data['password']
+
+
+            # if data.get('ip_address') == None:
+            #     response['message'] = 'Request failed, did not receive IP address.'
+            #     return response, 400
+            # if data.get('browser_type') == None:
+            #     response['message'] = 'Request failed, did not receive browser type.'
+            #     return response, 400
+
+
+            queries = [
+                """ SELECT
+                        ctm_id,
+                        ctm_first_name,
+                        ctm_last_name,
+                        ctm_address1,
+                        ctm_address2,
+                        ctm_city,
+                        ctm_state,
+                        ctm_zipcode,
+                        ctm_phone,
+                        ctm_email,
+                        ctm_join_date,
+                        ctm_email_verify
+                    FROM customer""" +
+                "\nWHERE ctm_email = " + "\'" + email + "\';"]
+
+            items = execute(queries[0], 'get', conn)
+            user_uid = items['result'][0]['ctm_id']
+
+            queries.append(
+                "SELECT * FROM passwords WHERE ctm_id = \'" + user_uid + "\';")
+            password_response = execute(queries[1], 'get', conn)
+
+            hashed = sha512((password + salt).encode()).hexdigest()
+
+
+
+            if hashed == password_response['result'][0]['pwd_hash']:
+                print("Successful authentication.")
+                response['message'] = 'Request successful.'
+                response['result'] = items
+                response['auth_success'] = True
+                httpCode = 200
+            else:
+                print("Wrong password.")
+                response['message'] = 'Request failed, wrong password.'
+                response['auth_success'] = False
+                httpCode = 401
+
+
+            # login_attempt = {
+            #     'user_uid': user_uid,
+            #     'attempt_hash': accPass,
+            #     'ip_address': data['ip_address'],
+            #     'browser_type': data['browser_type'],
+            # }
+
+            # if response['auth_success']:
+            #     login_attempt['auth_success'] = 'TRUE'
+            # else:
+            #     login_attempt['auth_success'] = 'FALSE'
+
+            # response['login_attempt_log'] = LogLoginAttempt(
+            #     login_attempt, conn)
+
+            return response, httpCode
+        except:
+            raise BadRequest('Request failed, please try again later.')
+        finally:
+            disconnect(conn)
 
 
 # Define API routes
@@ -1477,6 +1606,7 @@ api.add_resource(addCustomer, '/api/v2/add_customer')
 api.add_resource(addOrderNew, '/api/v2/add_order_new')
 api.add_resource(SignUp, '/api/v2/signup')
 api.add_resource(OrderDetails, '/api/v2/orderdetails')
+api.add_resource(Login, '/api/v2/login')
 
 # Run on below IP address and port
 # Make sure port number is unused (i.e. don't use numbers 0-1023)
