@@ -205,8 +205,6 @@ def runSelectQuery(query, cur):
 
 # -- Queries start here -------------------------------------------------------------------------------
 
-# DONOR QUERIES - ROHAN
-
 # QUERY 1
 # DONATION INFORMATION: FoodBankID, FoodbankName, Donor Name, Total Donations, Donation Date
 class DonorValuation(Resource):
@@ -393,7 +391,7 @@ class OrderStatus(Resource):
         finally:
             disconnect(conn)
 
-
+#QUERY 5
 # Shows Customer Addresses
 class CustomerAddresses(Resource):
     def get(self):
@@ -469,6 +467,7 @@ class Deliveries(Resource):
         finally:
             disconnect(conn)
 
+# QUERY 7
 class OrderDetails(Resource):
     def get(self):
         response = {}
@@ -522,6 +521,7 @@ class OrderDetails(Resource):
         finally:
             disconnect(conn)
 
+# QUERY 8
 # QUERY : EXCESS INVENTORY
 class ExcessInventory(Resource):
     def get(self):
@@ -578,6 +578,7 @@ class ExcessInventory(Resource):
         finally:
             disconnect(conn)
 
+# QUERY 9
 # QUERY : LOW INVENTORY
 class LowInventory(Resource):
     def get(self):
@@ -632,7 +633,7 @@ class LowInventory(Resource):
         finally:
             disconnect(conn)
 
-
+# QUERY 10
 # QUERY : NO INVENTORY
 class NoInventory(Resource):
     def get(self):
@@ -665,7 +666,7 @@ class NoInventory(Resource):
         finally:
             disconnect(conn)
 
-
+# QUERY 11
 # QUERY : Food Images
 class FoodImages(Resource):
     def get(self):
@@ -690,9 +691,7 @@ class FoodImages(Resource):
         finally:
             disconnect(conn)
 
-
-            
-            
+# QUERY 12
 # QUERY : Inventory
 class Inventory(Resource):
     def get(self):
@@ -732,6 +731,7 @@ class Inventory(Resource):
         finally:
             disconnect(conn)
 
+# QUERY 13
 # Customer Order by Foodbank
 class CustomerOrderValue(Resource):
     def get(self):
@@ -771,6 +771,7 @@ class CustomerOrderValue(Resource):
         finally:
             disconnect(conn)
 
+# QUERY 14
 # New Customers by Month by FoodBank
 class NewCustomersbyFoodbank(Resource):
     def get(self):
@@ -804,6 +805,7 @@ class NewCustomersbyFoodbank(Resource):
         finally:
             disconnect(conn)
 
+# QUERY 15
 # Customer Info
 class Customers(Resource):
     def get(self):
@@ -825,7 +827,7 @@ class Customers(Resource):
         finally:
             disconnect(conn)
             
-            
+# QUERY 16
 # Foodbank info
 class Foodbanks(Resource):
     def get(self):
@@ -846,6 +848,7 @@ class Foodbanks(Resource):
         finally:
             disconnect(conn)
 
+# QUERY 17
 # Foodbank Info
 class FoodBankInfoWithInventory(Resource):
     def get(self):
@@ -920,6 +923,7 @@ class FoodBankInfoWithInventory(Resource):
         finally:
             disconnect(conn)
 
+# QUERY 18
 class DonationsByDate(Resource):
       def get(self):
         response = {}
@@ -942,6 +946,7 @@ class DonationsByDate(Resource):
         finally:
             disconnect(conn)
 
+# QUERY 19
 class DeliveryRoute(Resource):
     def get(self):
         response = {}
@@ -959,30 +964,7 @@ class DeliveryRoute(Resource):
         finally:
             disconnect(conn)
 
-# -- Queries end here -------------------------------------------------------------------------------
-
-# Add Comment Here ie Shows All Meal Plan Info
-class TemplateApi(Resource):
-    def get(self):
-        response = {}
-        items = {}
-        try:
-            conn = connect()
-
-            items = execute(""" SELECT
-                                *
-                                FROM
-                                ptyd_meal_plans;""", 'get', conn)
-
-            response['message'] = 'successful'
-            response['result'] = items
-
-            return response, 200
-        except:
-            raise BadRequest('Request failed, please try again later.')
-        finally:
-            disconnect(conn)
-
+# QUERY 20
 class addOrder(Resource):
     # HTTP method POST
     def post(self):
@@ -1081,6 +1063,7 @@ class addOrder(Resource):
         finally:
             disconnect(conn)
 
+# QUERY 21
 class addCustomer(Resource):
     # HTTP method POST
     def post(self):
@@ -1149,6 +1132,7 @@ class addCustomer(Resource):
         finally:
             disconnect(conn)
 
+# QUERY 22
 class SignUp(Resource):
     # HTTP method POST
     def post(self):
@@ -1303,6 +1287,7 @@ class SignUp(Resource):
             disconnect(conn)
 
 
+# QUERY 24
 # confirmation page
 @app.route('/api/v2/confirm/<token>/<hashed>', methods=['GET'])
 def confirm(token, hashed):
@@ -1336,6 +1321,7 @@ def ipVersion(ip):
     else:
         return 'unknown'
 
+# QUERY 25
 def LogLoginAttempt(data, conn):
     try:
         response = {}
@@ -1387,7 +1373,7 @@ def LogLoginAttempt(data, conn):
         print("Could not log login attempt.")
         return None
 
-
+# QUERY 25
 class Login(Resource):
 
     def post(self):
@@ -1474,6 +1460,7 @@ class Login(Resource):
         finally:
             disconnect(conn)
 
+# QUERY 26
 class FoodBankInfoWithInventoryNew(Resource):
     def get(self, foodbank):
         response = {}
@@ -1482,37 +1469,11 @@ class FoodBankInfoWithInventoryNew(Resource):
             conn = connect()
 
             items = execute("""
-               Select fb_name
-                    , t.foodbank_id
-                    , fb_tag_line
-                    , foodbank_address
-                    , fb_monday_time
-                    , fb_tuesday_time
-                    , fb_wednesday_time
-                    , fb_thursday_time
-                    , fb_friday_time
-                    , fb_saturday_time
-                    , fb_sunday_time
-                    , t.food_id
-                    , food_name
-                    , quantity
-                    , fl_image
-                    , fl_amount
-                    , fl_value_in_dollars
-                    , fl_package_type
-                    , fl_brand
-                    , fl_food_type
-                    , fb_logo
-					, fb_total_limit
-                    , fl_unit
-					, t.limit
-                    ,  fb_longitude
-                    , fb_latitude
-					, t.delivery_pickup from 
-                    (SELECT fb_name
-                                        , temp.foodbank_id
+                            SELECT * FROM 
+                                (SELECT i.foodbank_id
+                                        , fb_name
                                         , fb_tag_line
-                                        , foodbank_address
+                                        , concat(fb_address1, SPACE(1) ,fb_city, SPACE(1), fb_state, SPACE(1), fb_zipcode) as foodbank_address
                                         , fb_monday_time
                                         , fb_tuesday_time
                                         , fb_wednesday_time
@@ -1520,52 +1481,33 @@ class FoodBankInfoWithInventoryNew(Resource):
                                         , fb_friday_time
                                         , fb_saturday_time
                                         , fb_sunday_time
-                                        , temp.food_id
-                                        , fl_name AS food_name
-                                        , SUM(inv_qty) as quantity
+                                        , fb_logo
+                                        , fb_total_limit AS max_checkout_items
+                                        , fb_longitude
+                                        , fb_latitude
+                                        , i.food_id
+                                        , fl_name as food_name
+                                        , inv_qty as quantity
+                                        , i.limit as food_id_limit
+                                        , i.delivery_pickup
+                                        , fl_food_type
                                         , fl_image
-                                        , fl_amount
+                                        , concat(fl_amount, " ", fl_unit) as food_unit
                                         , fl_value_in_dollars
                                         , fl_package_type
                                         , fl_brand
-                                        , fl_food_type
-                                        , fb_logo
-                                        , fb_total_limit
-                                        , fl_unit
-                                        , temp.limit
-                                        ,  fb_longitude
-                                        , fb_latitude
-                                        , temp.delivery_pickup
-                                    FROM
-                                    (SELECT i.foodbank_id
-                                            , fb_name
-                                            , i.food_id
-                                            , inv_qty
-                                            , fb_tag_line
-                                            , concat(fb_address1, SPACE(1) ,fb_city, SPACE(1), fb_state, SPACE(1), fb_zipcode) as foodbank_address
-                                            , fb_monday_time
-                                            , fb_tuesday_time
-                                            , fb_wednesday_time
-                                            , fb_thursday_time
-                                            , fb_friday_time
-                                            , fb_saturday_time
-                                            , fb_sunday_time
-                                            , fb_logo
-                                            , fb_total_limit
-                                            , i.limit
-                                            ,  fb_longitude
-                                            , fb_latitude
-                                            , i.delivery_pickup
-
-                                    FROM
-                                    inventory i
-                                    JOIN foodbanks  f
-                                    ON f.foodbank_id = i.foodbank_id) temp
-                                    JOIN food_list f
-                                    ON temp.food_id = f.food_id
-                                    GROUP BY temp.foodbank_id, f.food_id
-                                    ORDER BY temp.foodbank_id) t
-                                    where t.foodbank_id = \'""" +  foodbank + """\' and quantity > 0;""", 'get', conn)
+                                        , fl_type
+                            FROM
+                            inventory i
+                            JOIN foodbanks  f
+                            ON f.foodbank_id = i.foodbank_id
+                            JOIN food_list fl
+                            ON i.food_id = fl.food_id
+                            GROUP BY f.foodbank_id, fl.food_id
+                            ORDER BY f.foodbank_id
+                            ) t
+                        where foodbank_id = '800-000001' and quantity > 0;
+                        """, 'get', conn)
 
 
             days = ['fb_monday_time', 'fb_tuesday_time', 'fb_wednesday_time', 'fb_thursday_time', 'fb_friday_time','fb_saturday_time', 'fb_sunday_time']
@@ -1587,13 +1529,14 @@ class FoodBankInfoWithInventoryNew(Resource):
                 dict['food_name'] = items['result'][i]['food_name']
                 dict['quantity'] = items['result'][i]['quantity']
                 dict['fl_image'] = items['result'][i]['fl_image']
-                dict['fl_amount'] = str(items['result'][i]['fl_amount']) + " " + items['result'][i]['fl_unit']
+                dict['food_unit'] = str(items['result'][i]['food_unit'])
                 dict['fl_value_in_dollars'] = items['result'][i]['fl_value_in_dollars']
                 dict['fl_package_type'] = items['result'][i]['fl_package_type']
                 dict['fl_brand'] = items['result'][i]['fl_brand']
                 dict['fl_food_type'] = items['result'][i]['fl_food_type']
-                dict['limit'] = items['result'][i]['limit']
+                dict['food_id_limit'] = items['result'][i]['food_id_limit']
                 dict['delivery_pickup'] = items['result'][i]['delivery_pickup']
+                dict['fl_type'] = items['result'][i]['fl_type']
                 inventory.append(dict)
                 items['result'][i]['inventory'] = inventory 
 
@@ -1601,17 +1544,75 @@ class FoodBankInfoWithInventoryNew(Resource):
                 del items['result'][i]['food_name']
                 del items['result'][i]['quantity']
                 del items['result'][i]['fl_image']
-                del items['result'][i]['fl_amount'] 
-                del items['result'][i]['fl_unit']
+                del items['result'][i]['food_unit']
                 del items['result'][i]['fl_value_in_dollars']
                 del items['result'][i]['fl_package_type']
                 del items['result'][i]['fl_brand']
                 del items['result'][i]['fl_food_type']
-                del items['result'][i]['limit']
+                del items['result'][i]['food_id_limit']
                 del items['result'][i]['delivery_pickup']
+                del items['result'][i]['fl_type']
 
             response['message'] = 'successful'
             response['result'] = items['result'][0]
+
+            return response, 200
+        except:
+            raise BadRequest('Request failed, please try again later.')
+        finally:
+            disconnect(conn)
+
+# QUERY 18
+class FoodType(Resource):
+      def get(self, foodbank, foodtype):
+        response = {}
+        items = {}
+        try:
+            conn = connect()
+
+            query = """ SELECT * FROM 
+                                    (SELECT i.foodbank_id
+                                            , fb_name
+                                            , fb_tag_line
+                                            , concat(fb_address1, SPACE(1) ,fb_city, SPACE(1), fb_state, SPACE(1), fb_zipcode) as foodbank_address
+                                            , fb_monday_time
+                                            , fb_tuesday_time
+                                            , fb_wednesday_time
+                                            , fb_thursday_time
+                                            , fb_friday_time
+                                            , fb_saturday_time
+                                            , fb_sunday_time
+                                            , fb_logo
+                                            , fb_total_limit AS max_checkout_items
+                                            , fb_longitude
+                                            , fb_latitude
+                                            , i.food_id
+                                            , fl_name as food_name
+                                            , inv_qty as quantity
+                                            , i.limit as food_id_limit
+                                            , i.delivery_pickup
+                                            , substring_index(substring_index(fl_food_type,';',n),';',-1) AS foodCategory
+                                            , fl_image
+                                            , concat(fl_amount, " ", fl_unit) as food_unit
+                                            , fl_value_in_dollars
+                                            , fl_package_type
+                                            , fl_brand
+                                            , fl_type
+                                FROM
+                                inventory i
+                                JOIN foodbanks  f
+                                ON f.foodbank_id = i.foodbank_id
+                                JOIN food_list fl
+                                ON i.food_id = fl.food_id
+                                JOIN numbers 
+                                ON char_length(fl_food_type) - char_length(replace(fl_food_type, ';', '')) >= n - 1
+                                GROUP BY f.foodbank_id, fl.food_id, foodCategory
+                                ORDER BY f.foodbank_id
+                                ) t
+                            where foodbank_id = \'""" +  foodbank + """\' and quantity > 0 and foodCategory = \'""" +  foodtype + """\';"""
+            items = execute(query, 'get', conn)           
+            response['message'] = 'successful'
+            response['result'] = items
 
             return response, 200
         except:
@@ -1631,7 +1632,6 @@ class FoodBankInfoWithInventoryNew(Resource):
 # New APIs, uses connect() and disconnect()
 # Create new api template URL
 
-api.add_resource(TemplateApi, '/api/v2/templateapi')
 api.add_resource(DonorValuation, '/api/v2/donordonation')
 api.add_resource(ItemDonations, '/api/v2/itemdonations')
 api.add_resource(TypesOfFood, '/api/v2/foodtypes')
@@ -1663,6 +1663,8 @@ api.add_resource(SignUp, '/api/v2/signup')
 api.add_resource(OrderDetails, '/api/v2/orderdetails')
 api.add_resource(Login, '/api/v2/login')
 api.add_resource(FoodBankInfoWithInventoryNew, '/api/v2/foodbankinfonew/<foodbank>')
+api.add_resource(FoodType, '/api/v2/foodtype/<foodbank>/<foodtype>')
+
 
 
 # Run on below IP address and port
