@@ -1005,6 +1005,7 @@ class addOrder(Resource):
             longitude = data["longitude"]
             latitude = data["latitude"]
             delivery_date = data["delivery_date"]
+            order_type = data["order_type"]
             foodList = data['ordered_items']
             address = street +" " + city + " " + state + " " + zipcode
             status = 'pending'
@@ -1048,8 +1049,9 @@ class addOrder(Resource):
                                     o_total_cost,
                                     order_date,
                                     o_latitude,
-                                    o_longitude
-                                   
+                                    o_longitude,
+                                    o_delivery_pickup,
+                                    order_address
                                 )
                                 VALUES
                                 (
@@ -1063,7 +1065,9 @@ class addOrder(Resource):
                                     , \'""" +  str(total_cost) + """\'
                                     , \'""" + timeStamp + """\'
                                     , \'""" +  str(latitude) + """\'
-                                    , \'""" +  str(longitude) + """\');""")
+                                    , \'""" +  str(longitude) + """\'
+                                    , \'""" + order_type + """\'
+                                    , \'""" +  address + """\');""")
 
             items = execute(queries[1], 'post', conn)
             response['message'] = 'successful'
@@ -1143,110 +1147,6 @@ class addCustomer(Resource):
             print("Error happened while Inserting new customer")
             raise BadRequest('Request failed, please try again later.')
         finally:
-            disconnect(conn)
-
-class addOrderNew(Resource):
-    # HTTP method POST
-    def post(self):
-        response = {}
-        items = []
-        try:
-            conn = connect()
-
-            data = request.get_json(force=True)
-
-            customer_id = data['customer_id']
-            phone = data['phone']
-            street = data['street']
-            city = data['city']
-            state = data['state']
-            zipcode = data['zipcode']
-            total_cost = data['totalAmount']
-            delivery_note = data['delivery_note']
-            foodbankId = data['kitchen_id']
-            longitude = data["longitude"]
-            latitude = data["latitude"]
-            delivery_date = data["delivery_date"]
-            foodList = data['ordered_items']
-            address = street +" " + city + " " + state + " " + zipcode
-            status = 'pending'
-            timeStamp = (datetime.now()).strftime("%m-%d-%Y %H:%M:%S")
-
-            list1 = []
-            list2 = []
-            print(foodList)
-            for i in range(len(foodList)):
-
-                meal_id = foodList[i]["meal_id"]
-                quantity = foodList[i]["qty"]
-                typeFood = foodList[i]["delivery/pickup"]
-                quantity = int(quantity)
-                for qty in range(quantity):
-                    if(typeFood == "delivery"):
-                        list1.append(meal_id)
-                    elif(typeFood == "pickup"):
-                        list2.append(meal_id)
-                query = """SELECT inv_qty FROM inventory WHERE food_id = \'"""+meal_id+"""\' AND foodbank_id = \'"""+foodbankId+"""\';"""
-                original_quantity = execute(query, 'get', conn)
-                original_quantity = original_quantity['result'][0]['inv_qty']
-            
-                new_quantity = original_quantity - quantity
-                query1 = """UPDATE inventory
-                                SET inv_qty = """ +str(new_quantity)+ """                       
-                                WHERE food_id = \'"""+meal_id+"""\' AND foodbank_id = \'"""+foodbankId+"""\';""";
-                execute(query1, 'get', conn)
-
-            list1 = json.dumps(list1)
-            list2 = json.dumps(list2)
-            print(list2)
-
-            queries = ["CALL new_order;"]
-
-            NewUserIDresponse = execute(queries[0], 'get', conn)
-            NewUserID = NewUserIDresponse['result'][0]['new_id']
-
-            queries.append( """ INSERT INTO ordersTest
-                                (
-                                    o_id,
-                                    o_customer_id,
-                                    o_foodbank_id,
-                                    order_list_delivery,
-                                    order_list_pickup,
-                                    o_status,
-                                    delivery_note,
-                                    delivery_date,
-                                    o_total_cost,
-                                    order_date,
-                                    o_latitude,
-                                    o_longitude
-                                   
-                                )
-                                VALUES
-                                (
-                                    \'""" + NewUserID + """\'
-                                    , \'""" + customer_id + """\'
-                                    , \'""" + foodbankId + """\'
-                                    , \'""" + list1 + """\'
-                                    , \'""" + list2 + """\'
-                                    , \'""" + status + """\'
-                                    ,  \'""" + delivery_note + """\'
-                                    , \'""" + delivery_date + """\'
-                                    , \'""" +  str(total_cost) + """\'
-                                    , \'""" + timeStamp + """\'
-                                    , \'""" +  str(latitude) + """\'
-                                    , \'""" +  str(longitude) + """\');""")
-
-            items = execute(queries[1], 'post', conn)
-            response['message'] = 'successful'
-            response['result'] = NewUserID
-
-            return response, 200
-        except:
-            print("Error happened while Inserting order")
-            raise BadRequest('Request failed, please try again later.')
-        finally:
-
-            conn = connect()
             disconnect(conn)
 
 class SignUp(Resource):
@@ -1604,6 +1504,7 @@ class FoodBankInfoWithInventoryNew(Resource):
                     , fl_food_type
                     , fb_logo
 					, fb_total_limit
+                    , fl_unit
 					, t.limit
                     ,  fb_longitude
                     , fb_latitude
@@ -1629,11 +1530,12 @@ class FoodBankInfoWithInventoryNew(Resource):
                                         , fl_brand
                                         , fl_food_type
                                         , fb_logo
-                                            , fb_total_limit
-                                            , temp.limit
+                                        , fb_total_limit
+                                        , fl_unit
+                                        , temp.limit
                                         ,  fb_longitude
                                         , fb_latitude
-                                            , temp.delivery_pickup
+                                        , temp.delivery_pickup
                                     FROM
                                     (SELECT i.foodbank_id
                                             , fb_name
@@ -1665,14 +1567,58 @@ class FoodBankInfoWithInventoryNew(Resource):
                                     ORDER BY temp.foodbank_id) t
                                     where t.foodbank_id = \'""" +  foodbank + """\' and quantity > 0;""", 'get', conn)
 
+
+            days = ['fb_monday_time', 'fb_tuesday_time', 'fb_wednesday_time', 'fb_thursday_time', 'fb_friday_time','fb_saturday_time', 'fb_sunday_time']
+            for day in days:
+                for i in range(len(items['result'])):
+                    if(items['result'][i][day] is not None):
+                        times = json.loads(items['result'][i][day])
+                        items['result'][i][day + '_delivery'] =  times['delivery']
+                        items['result'][i][day + '_order'] =  times['order']
+                        del items['result'][i][day]
+                    else:
+                        items['result'][i][day + '_delivery/order'] = 'Closed'
+                        del items['result'][i][day]
+
+            inventory = []
+            for i in range(len(items['result'])):
+                dict = {}
+                dict['food_id'] = items['result'][i]['food_id']
+                dict['food_name'] = items['result'][i]['food_name']
+                dict['quantity'] = items['result'][i]['quantity']
+                dict['fl_image'] = items['result'][i]['fl_image']
+                dict['fl_amount'] = str(items['result'][i]['fl_amount']) + " " + items['result'][i]['fl_unit']
+                dict['fl_value_in_dollars'] = items['result'][i]['fl_value_in_dollars']
+                dict['fl_package_type'] = items['result'][i]['fl_package_type']
+                dict['fl_brand'] = items['result'][i]['fl_brand']
+                dict['fl_food_type'] = items['result'][i]['fl_food_type']
+                dict['limit'] = items['result'][i]['limit']
+                dict['delivery_pickup'] = items['result'][i]['delivery_pickup']
+                inventory.append(dict)
+                items['result'][i]['inventory'] = inventory 
+
+                del items['result'][i]['food_id']
+                del items['result'][i]['food_name']
+                del items['result'][i]['quantity']
+                del items['result'][i]['fl_image']
+                del items['result'][i]['fl_amount'] 
+                del items['result'][i]['fl_unit']
+                del items['result'][i]['fl_value_in_dollars']
+                del items['result'][i]['fl_package_type']
+                del items['result'][i]['fl_brand']
+                del items['result'][i]['fl_food_type']
+                del items['result'][i]['limit']
+                del items['result'][i]['delivery_pickup']
+
             response['message'] = 'successful'
-            response['result'] = items
+            response['result'] = items['result'][0]
 
             return response, 200
         except:
             raise BadRequest('Request failed, please try again later.')
         finally:
             disconnect(conn)
+
 
 
 # Define API routes
@@ -1713,7 +1659,6 @@ api.add_resource(DonationsByDate, '/api/v2/donationsbydate')
 api.add_resource(DeliveryRoute, '/api/v2/deliveryroute')
 api.add_resource(addOrder, '/api/v2/add_order')
 api.add_resource(addCustomer, '/api/v2/add_customer')
-api.add_resource(addOrderNew, '/api/v2/add_order_new')
 api.add_resource(SignUp, '/api/v2/signup')
 api.add_resource(OrderDetails, '/api/v2/orderdetails')
 api.add_resource(Login, '/api/v2/login')
