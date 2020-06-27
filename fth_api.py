@@ -964,6 +964,45 @@ class DeliveryRoute(Resource):
         finally:
             disconnect(conn)
 
+def sendOrderEmail(customer_id, conn, order_list):
+    try:
+        response = {}
+
+        query = "SELECT * FROM customer WHERE ctm_id = \'" + customer_id + "\';"
+        query_response = execute(query, 'get', conn)
+
+        email = query_response['result'][0]['ctm_email']
+
+        body = ""
+
+
+        for i in range(len(order_list)):
+
+                meal_id = order_list[i]["meal_id"]
+                quantity = order_list[i]["qty"]
+                quantity = int(quantity)
+
+                qry = """SELECT fl_name FROM food_list WHERE food_id = \'"""+meal_id+"""\';"""
+                qrt_result = execute(qry, 'get', conn)
+                food_name = qrt_result['result'][0]['fl_name']
+
+            
+                body = body + str(food_name) + " " + str(quantity) + "\n"
+
+        msg = Message("Email Verification",
+                          sender='ptydtesting@gmail.com', recipients=[email])
+        msg.body = "We confirmed the order of following items.\n{} ".format(
+            body)
+
+        print(msg.body)
+
+        mail.send(msg)
+
+        return response
+    except:
+        print("Could not send order confirmation email.")
+        return None
+
 # QUERY 20
 class addOrder(Resource):
     # HTTP method POST
@@ -1051,6 +1090,8 @@ class addOrder(Resource):
                                     , \'""" + order_type + """\'
                                     , \'""" +  address + """\');""")
 
+            response['confirmation_email_log'] = sendOrderEmail(customer_id, conn, foodList)
+
             items = execute(queries[1], 'post', conn)
             response['message'] = 'successful'
             response['result'] = {"order_id": NewUserID}
@@ -1062,6 +1103,7 @@ class addOrder(Resource):
             raise BadRequest('Request failed, please try again later.')
         finally:
             disconnect(conn)
+
 
 # QUERY 21
 class addCustomer(Resource):
@@ -1135,12 +1177,14 @@ class addCustomer(Resource):
 # QUERY 22
 class SignUp(Resource):
     # HTTP method POST
+
     def post(self):
         response = {}
         items = []
         try:
             conn = connect()
             data = request.get_json(force=True)
+
 
             first_name = data['first_name']
             last_name = data['last_name']
@@ -1152,6 +1196,8 @@ class SignUp(Resource):
             phone = data['phone']
             email = data['email']
             timeStamp = (datetime.now()).strftime("%m-%d-%Y %H:%M:%S")
+
+            print("data fetch completed")
 
             queries = ["CALL get_customer_id;"]
 
@@ -1189,6 +1235,8 @@ class SignUp(Resource):
             DatetimeStamp = getNow()
             salt = getNow()
             hashed = sha512((data['password'] + salt).encode()).hexdigest()
+
+            print("hashing completed")
 
             queries.append("""
                 INSERT INTO passwords
@@ -1286,8 +1334,6 @@ class SignUp(Resource):
         finally:
             disconnect(conn)
 
-
-# QUERY 24
 # confirmation page
 @app.route('/api/v2/confirm/<token>/<hashed>', methods=['GET'])
 def confirm(token, hashed):
@@ -1384,6 +1430,8 @@ class Login(Resource):
 
             email = data['email']
             password = data['password']
+
+            print("starting Login")
 
 
             # if data.get('ip_address') == None:
