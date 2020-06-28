@@ -54,9 +54,9 @@ app.config['DEBUG'] = True
 # Adding for email testing
 app.config['MAIL_SERVER'] = 'smtp.gmail.com'
 app.config['MAIL_PORT'] = 465
-app.config['MAIL_USERNAME'] = 'ptydtesting@gmail.com'
+app.config['MAIL_USERNAME'] = 'fthtesting@gmail.com'
 app.config['MAIL_PASSWORD'] = 'infiniteoptions0422'
-app.config['MAIL_DEFAULT_SENDER'] = 'ptydtesting@gmail.com'
+app.config['MAIL_DEFAULT_SENDER'] = 'fthtesting@gmail.com'
 app.config['MAIL_USE_TLS'] = False
 app.config['MAIL_USE_SSL'] = True
 # app.config['MAIL_DEBUG'] = True
@@ -990,7 +990,7 @@ def sendOrderEmail(customer_id, conn, order_list):
                 body = body + str(food_name) + " " + str(quantity) + "\n"
 
         msg = Message("Email Verification",
-                          sender='ptydtesting@gmail.com', recipients=[email])
+                          sender='fthtesting@gmail.com', recipients=[email])
         msg.body = "We confirmed the order of following items.\n{} ".format(
             body)
 
@@ -1307,7 +1307,7 @@ class SignUp(Resource):
 
             token = json.dumps(email)
             msg = Message("Email Verification",
-                          sender='ptydtesting@gmail.com', recipients=[email])
+                          sender='fthtesting@gmail.com', recipients=[email])
 
             print(token)
             print(hashed)
