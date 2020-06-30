@@ -1506,7 +1506,7 @@ class FoodBankInfoWithInventoryNew(Resource):
                             GROUP BY f.foodbank_id, fl.food_id
                             ORDER BY f.foodbank_id
                             ) t
-                        where foodbank_id = '800-000001' and quantity > 0;
+                        where foodbank_id = \'""" +  foodbank + """\' and quantity > 0;
                         """, 'get', conn)
 
 
