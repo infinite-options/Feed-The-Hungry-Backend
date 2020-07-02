@@ -1668,6 +1668,208 @@ class FoodType(Resource):
         finally:
             disconnect(conn)
 
+class SocialSignUp(Resource):
+    # HTTP method POST
+    def post(self):
+        response = {}
+        try:
+            conn = connect()
+            data = request.get_json(force=True)
+
+            first_name = data['first_name']
+            last_name = data['last_name']
+            address1 = data['address1']
+            address2 = data['address2']
+            city = data['city']
+            state = data['state']
+            zipcode = data['zipcode']
+            phone = data['phone']
+            email = data['email']
+            social_media = data['social_media']
+            access_token = data['access_token']
+            refresh_token = data['refresh_token']
+            timeStamp = (datetime.now()).strftime("%m-%d-%Y %H:%M:%S")
+
+            print("Received:", data)
+
+            # Query [0]
+            queries = ["CALL get_customer_id;"]
+
+            NewUserIDresponse = execute(queries[0], 'get', conn)
+            NewUserID = NewUserIDresponse['result'][0]['new_id']
+
+            print("NewUserID:", NewUserID)
+
+            # Query [1]
+            queries.append(
+                """ INSERT INTO customer
+                    (
+                        ctm_id,
+                        ctm_first_name,
+                        ctm_last_name,
+                        ctm_address1,
+                        ctm_address2,
+                        ctm_city,
+                        ctm_state,
+                        ctm_zipcode,
+                        ctm_phone,
+                        ctm_email,
+                        ctm_join_date
+                    )
+                    VALUES
+                    (""" +
+                "\'" + NewUserID + "\'," +
+                "\'" + first_name + "\'," +
+                "\'" + last_name + "\'," +
+                "\'" + address1 + "\'," +
+                "\'" + address2 + "\'," +
+                "\'" + city + "\'," +
+                "\'" + state + "\'," +
+                "\'" + zipcode + "\'," +
+                "\'" + phone + "\'," +
+                "\'" + email + "\'," +
+                "\'" + timeStamp + "\');")
+
+            # Query [2]
+            queries.append("""
+                INSERT INTO social_accounts
+                (
+                    ctm_id,
+                    ctm_email,
+                    ctm_social_media,
+                    ctm_access_token,
+                    ctm_refresh_token
+                )
+                VALUES
+                (
+                    \'""" + NewUserID + """\',
+                    \'""" + email + """\',
+                    \'""" + social_media + """\',
+                    \'""" + access_token + """\',
+                    \'""" + refresh_token + "\');")
+
+            usnInsert = execute(queries[1], 'post', conn)
+
+            if usnInsert['code'] != 281:
+                response['message'] = 'Request failed.'
+
+                query = """
+                    SELECT ctm_email FROM customer
+                    WHERE ctm_email = \'""" + email + "\';"
+
+                emailExists = execute(query, 'get', conn)
+
+                if emailExists['code'] == 280 and len(emailExists['result']) > 0:
+                    statusCode = 400
+                    response['result'] = 'Email address taken.'
+                else:
+                    statusCode = 500
+                    response['result'] = 'Internal server error.'
+
+                response['code'] = usnInsert['code']
+                print(response['message'],
+                      response['result'], usnInsert['code'])
+                return response, statusCode
+
+            socInsert = execute(queries[2], 'post', conn)
+
+            if socInsert['code'] != 281:
+                response['message'] = 'Request failed.'
+                response['result'] = 'Could not commit password.'
+                print(response['message'],
+                      response['result'], socInsert['code'])
+                return response, 500
+
+            response['message'] = 'Request successful.'
+            response['result'] = {'user_uid': NewUserID}
+
+            print(response)
+            return response, 200
+        except:
+            raise BadRequest('Request failed, please try again later.')
+        finally:
+            disconnect(conn)
+
+
+# Social Media Login API
+
+
+class Social(Resource):
+
+    # HTTP method GET
+    def get(self, email):
+        response = {}
+        try:
+            conn = connect()
+
+            queries = [
+                """     SELECT
+                        ctm_id,
+                        ctm_email,
+                        ctm_social_media,
+                        ctm_access_token,
+                        ctm_refresh_token
+                    FROM social_accounts WHERE ctm_email = '""" + email + "';"
+            ]
+
+            items = execute(queries[0], 'get', conn)
+            response['message'] = 'Request successful.'
+            response['result'] = items
+            # restest = SocialAccount().get(email)
+
+            return response, 200
+        except:
+            raise BadRequest('Request failed, please try again later.')
+        finally:
+            disconnect(conn)
+
+
+class SocialAccount(Resource):
+
+    # HTTP method POST
+    def post(self, ctm_id):
+        response = {}
+        try:
+            conn = connect()
+            #data = request.get_json(force=True)
+            queries = [
+                """     SELECT
+                        ctm_id,
+                        ctm_first_name,
+                        ctm_last_name,
+                        ctm_address1,
+                        ctm_address2,
+                        ctm_city,
+                        ctm_state,
+                        ctm_zipcode,
+                        ctm_phone,
+                        ctm_email,
+                        ctm_join_date
+                    FROM customer WHERE ctm_id = '""" + ctm_id + "';"]
+
+            items = execute(queries[0], 'get', conn)
+
+            print(items)
+            # create a login attempt
+            login_attempt = {
+                'auth_success': 'TRUE',
+                'ctm_id': ctm_id,
+                'attempt_hash': "NULL",
+                'ip_address': "68.78.203.151",
+                'browser_type': "Chrome",
+            }
+
+            response['login_attempt_log'] = LogLoginAttempt(
+                login_attempt, conn)
+
+            response['message'] = 'Request successful.'
+            response['result'] = items
+
+            return response, 200
+        except:
+            raise BadRequest('Request failed, please try again later.')
+        finally:
+            disconnect(conn)
 
 
 # Define API routes
@@ -1713,7 +1915,9 @@ api.add_resource(Login, '/api/v2/login')
 api.add_resource(FoodBankInfoWithInventoryNew, '/api/v2/foodbankinfonew/<foodbank>')
 api.add_resource(FoodType, '/api/v2/foodtype/<foodbank>/<foodtype>')
 
-
+api.add_resource(SocialSignUp, '/api/v2/socialsignup')
+api.add_resource(Social, '/api/v2/social/<string:email>')
+api.add_resource(SocialAccount, '/api/v2/socialacc/<string:ctm_id>')
 
 # Run on below IP address and port
 # Make sure port number is unused (i.e. don't use numbers 0-1023)
