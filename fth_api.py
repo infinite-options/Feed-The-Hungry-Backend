@@ -213,7 +213,7 @@ class DonorValuation(Resource):
         items = {}
         try:
             conn = connect()
-
+            print("P")
             items = execute("""
                         SELECT 
                                 d.donor_id,
@@ -1031,7 +1031,7 @@ class addOrder(Resource):
             address = street +" " + city + " " + state + " " + zipcode
             status = 'pending'
             timeStamp = (datetime.now()).strftime("%m-%d-%Y %H:%M:%S")
-
+            print(timeStamp)
             list = []
 
             for i in range(len(foodList)):
