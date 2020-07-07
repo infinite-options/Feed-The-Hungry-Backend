@@ -1514,7 +1514,7 @@ def confirm(token, hashed):
         email = json.loads(token)  # max_age = 86400 = 1 day
         # marking email confirmed in database, then...
         conn = connect()
-        query = """UPDATE users SET user_email_verify = 1 WHERE user_email = \'""" + \
+        query = """UPDATE users SET user_email_verified = 1 WHERE user_email = \'""" + \
                 email + """\';"""
         update = execute(query, 'post', conn)
         if update.get('code') == 281:
