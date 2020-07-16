@@ -360,6 +360,45 @@ class DonationbyDate(Resource):
             raise BadRequest('Request failed, please try again later.')
         finally:
             disconnect(conn)
+
+class DonationbyFood(Resource):
+    def get(self):
+        response = {}
+        items = {}
+        try:
+            conn = connect()
+
+            items = execute("""
+               SELECT  foodbank_id
+                        , fb_name
+                        , donor_id
+                        , foodID
+                        , fl_name
+                        , quantity as quantityDonated
+                        , round(quantity * fl_value_in_dollars, 2) AS valueDonated
+                        , donations_date
+                FROM (
+                    SELECT donation_foodbank_id
+                        , trim('"' FROM cast(json_extract(donation_food_list, val) as CHAR)) AS foodID
+                        , COUNT(trim('"' FROM cast(json_extract(donation_food_list, val) as CHAR))) AS quantity
+                        , donor_id
+                        , date(STR_TO_DATE(donation_date, '%c-%e-%Y %H:%i:%s')) AS donations_date
+
+                    FROM donations
+                    JOIN numbers ON JSON_LENGTH(donation_food_list) > n - 1
+                    GROUP BY donor_id, foodID, donation_foodbank_id, donations_date) AS temp
+                JOIN food_list ON foodID = food_id
+                JOIN foodbanks ON foodbank_id = donation_foodbank_id
+                ORDER BY foodbank_id, donor_id, foodID;""", 'get', conn)
+
+            response['message'] = 'successful'
+            response['result'] = items
+
+            return response, 200
+        except:
+            raise BadRequest('Request failed, please try again later.')
+        finally:
+            disconnect(conn)
             
 #QUERY 5
 # Shows FoodBankID, Month, Completed Orders, Pending Orders, Total Orders
@@ -2103,6 +2142,8 @@ api.add_resource(DonorValuation, '/api/v2/donordonation')
 api.add_resource(ItemDonations, '/api/v2/itemdonations')
 api.add_resource(TypesOfFood, '/api/v2/foodtypes')
 api.add_resource(DonationbyDate, '/api/v2/donation')
+api.add_resource(DonationbyFood, '/api/v2/donationFood')
+
 
 api.add_resource(OrderStatus, '/api/v2/orderstatus')
 api.add_resource(CustomerAddresses, '/api/v2/customeraddresses')
