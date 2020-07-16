@@ -1175,6 +1175,166 @@ class addCustomer(Resource):
             disconnect(conn)
 
 # QUERY 22
+# class SignUp(Resource):
+#     # HTTP method POST
+
+#     def post(self):
+#         response = {}
+#         items = []
+#         try:
+#             conn = connect()
+#             data = request.get_json(force=True)
+
+
+#             first_name = data['first_name']
+#             last_name = data['last_name']
+#             address1 = data['address1']
+#             address2 = data['address2']
+#             city = data['city']
+#             state = data['state']
+#             zipcode = data['zipcode']
+#             phone = data['phone']
+#             email = data['email']
+#             timeStamp = (datetime.now()).strftime("%m-%d-%Y %H:%M:%S")
+
+#             print("data fetch completed")
+
+#             queries = ["CALL get_customer_id;"]
+
+#             NewUserIDresponse = execute(queries[0], 'get', conn)
+#             NewUserID = NewUserIDresponse['result'][0]['new_id']
+
+#             queries.append( """ INSERT INTO customer
+#                                 (
+#                                     ctm_id,
+#                                     ctm_first_name,
+#                                     ctm_last_name,
+#                                     ctm_address1,
+#                                     ctm_address2,
+#                                     ctm_city,
+#                                     ctm_state,
+#                                     ctm_zipcode,
+#                                     ctm_phone,
+#                                     ctm_email,
+#                                     ctm_join_date
+#                                 )
+#                                 VALUES
+#                                 (
+#                                     \'""" + NewUserID + """\'
+#                                     , \'""" + first_name + """\'
+#                                     , \'""" + last_name + """\'
+#                                     , \'""" + address1 + """\'
+#                                     , \'""" + address2 + """\'
+#                                     ,  \'""" + city + """\'
+#                                     , \'""" + state + """\'
+#                                     , \'""" +  zipcode + """\'
+#                                     , \'""" + phone + """\'
+#                                     , \'""" +  email + """\'
+#                                     , \'""" +  timeStamp + """\');""")
+
+#             DatetimeStamp = getNow()
+#             salt = getNow()
+#             hashed = sha512((data['password'] + salt).encode()).hexdigest()
+
+#             print("hashing completed")
+
+#             queries.append("""
+#                 INSERT INTO passwords
+#                 (
+#                     ctm_id,
+#                     pwd_hash,
+#                     pwd_salt,
+#                     pwd_hash_algorithm,
+#                     pwd_created,
+#                     pwd_last_changed
+#                 )
+#                 VALUES
+#                 (
+#                     \'""" + NewUserID + """\',
+#                     \'""" + hashed + """\',
+#                     \'""" + salt + """\',
+#                     \'SHA512\',
+#                     \'""" + DatetimeStamp + """\',
+#                     \'""" + DatetimeStamp + "\');")
+
+#             usnInsert = execute(queries[1], 'post', conn)
+
+#             if usnInsert['code'] != 281:
+#                 response['message'] = 'Request failed.'
+#                 response['result'] = 'Internal server error (Customer write).'
+
+#                 query = """
+#                     SELECT ctm_email FROM customer
+#                     WHERE ctm_email = \'""" + email + "\';"
+
+#                 emailExists = execute(query, 'get', conn)
+
+#                 if emailExists['code'] == 280 and len(emailExists['result']) > 0:
+#                     statusCode = 400
+#                     response['result'] = 'Email address taken.'
+#                 else:
+#                     statusCode = 500
+#                     response['result'] = 'Internal server error.'
+
+#                 response['code'] = usnInsert['code']
+#                 return response, statusCode
+
+#             pwInsert = execute(queries[2], 'post', conn)
+
+#             if pwInsert['code'] != 281:
+#                 response['message'] = 'Request failed.'
+#                 response['result'] = 'Internal server error (Password write).'
+#                 response['code'] = pwInsert['code']
+
+#                 # Make sure to delete signed up user
+#                 # New user was added to db from first MySQL cmd
+#                 query = """
+#                     DELETE FROM customer
+#                     WHERE ctm_email = \'""" + email + "\';"
+
+#                 deleteUser = execute(query, 'post', conn)
+
+#                 # Handle error for successful user account signup
+#                 # but failed password storing to the db
+#                 if deleteUser['code'] != 281:
+#                     response[
+#                         'WARNING'] = "This user was signed up to the database but did not properly store their password. Their account cannot be logged into and must be reset by a system administrator."
+#                     response['code'] = 590
+
+#                 return response, 500
+
+#             # this part using for testing email verification
+
+#             token = json.dumps(email)
+#             msg = Message("Email Verification",
+#                           sender='fthtesting@gmail.com', recipients=[email])
+
+#             print(token)
+#             print(hashed)
+#             link = url_for('confirm', token=token,
+#                            hashed=hashed, _external=True)
+#             msg.body = "Click on the link {} to verify your email address.".format(
+#                 link)
+
+#             mail.send(msg)
+#             # email verification testing s ended here...
+
+#             response['message'] = 'Request successful. An email has been sent and need to verify.'
+#             response['code'] = usnInsert['code']
+#             response['first_name'] = first_name
+#             response['user_uid'] = NewUserID
+
+            
+
+#             print(response)
+#             return response, 200
+#         except:
+#             print("Error happened while Sign Up")
+#             raise BadRequest('Request failed, please try again later.')
+#         finally:
+#             disconnect(conn)
+
+
 class SignUp(Resource):
     # HTTP method POST
 
@@ -1185,7 +1345,10 @@ class SignUp(Resource):
             conn = connect()
             data = request.get_json(force=True)
 
-
+            user_is_customer = data['user_is_customer']
+            user_is_donor = data['user_is_donor']
+            user_is_admin = data['user_is_admin']
+            user_is_foodbank = data['user_is_foodbank']
             first_name = data['first_name']
             last_name = data['last_name']
             address1 = data['address1']
@@ -1197,30 +1360,42 @@ class SignUp(Resource):
             email = data['email']
             timeStamp = (datetime.now()).strftime("%m-%d-%Y %H:%M:%S")
 
+            print(data)
+
             print("data fetch completed")
 
-            queries = ["CALL get_customer_id;"]
+            queries = ["CALL get_user_id;"]
 
             NewUserIDresponse = execute(queries[0], 'get', conn)
             NewUserID = NewUserIDresponse['result'][0]['new_id']
 
-            queries.append( """ INSERT INTO customer
+            print("got new id")
+
+            queries.append( """ INSERT INTO users
                                 (
-                                    ctm_id,
-                                    ctm_first_name,
-                                    ctm_last_name,
-                                    ctm_address1,
-                                    ctm_address2,
-                                    ctm_city,
-                                    ctm_state,
-                                    ctm_zipcode,
-                                    ctm_phone,
-                                    ctm_email,
-                                    ctm_join_date
+                                    user_id,
+                                    user_is_customer,
+                                    user_is_donor,
+                                    user_is_admin,
+                                    user_is_foodbank,
+                                    user_first_name,
+                                    user_last_name,
+                                    user_address1,
+                                    user_address2,
+                                    user_city,
+                                    user_state,
+                                    user_zipcode,
+                                    user_phone,
+                                    user_email,
+                                    user_join_date
                                 )
                                 VALUES
                                 (
                                     \'""" + NewUserID + """\'
+                                    , \'""" + str(user_is_customer) + """\'
+                                    , \'""" + str(user_is_donor) + """\'
+                                    , \'""" + str(user_is_admin) + """\'
+                                    , \'""" + str(user_is_foodbank) + """\'
                                     , \'""" + first_name + """\'
                                     , \'""" + last_name + """\'
                                     , \'""" + address1 + """\'
@@ -1232,6 +1407,10 @@ class SignUp(Resource):
                                     , \'""" +  email + """\'
                                     , \'""" +  timeStamp + """\');""")
 
+           
+
+            print("insert query done")
+
             DatetimeStamp = getNow()
             salt = getNow()
             hashed = sha512((data['password'] + salt).encode()).hexdigest()
@@ -1241,7 +1420,7 @@ class SignUp(Resource):
             queries.append("""
                 INSERT INTO passwords
                 (
-                    ctm_id,
+                    user_id,
                     pwd_hash,
                     pwd_salt,
                     pwd_hash_algorithm,
@@ -1264,8 +1443,8 @@ class SignUp(Resource):
                 response['result'] = 'Internal server error (Customer write).'
 
                 query = """
-                    SELECT ctm_email FROM customer
-                    WHERE ctm_email = \'""" + email + "\';"
+                    SELECT user_email FROM users
+                    WHERE user_email = \'""" + email + "\';"
 
                 emailExists = execute(query, 'get', conn)
 
@@ -1289,8 +1468,8 @@ class SignUp(Resource):
                 # Make sure to delete signed up user
                 # New user was added to db from first MySQL cmd
                 query = """
-                    DELETE FROM customer
-                    WHERE ctm_email = \'""" + email + "\';"
+                    DELETE FROM users
+                    WHERE user_email = \'""" + email + "\';"
 
                 deleteUser = execute(query, 'post', conn)
 
@@ -1341,7 +1520,7 @@ def confirm(token, hashed):
         email = json.loads(token)  # max_age = 86400 = 1 day
         # marking email confirmed in database, then...
         conn = connect()
-        query = """UPDATE customer SET ctm_email_verify = 1 WHERE ctm_email = \'""" + \
+        query = """UPDATE users SET user_email_verified = 1 WHERE user_email = \'""" + \
                 email + """\';"""
         update = execute(query, 'post', conn)
         if update.get('code') == 281:
@@ -1444,26 +1623,34 @@ class Login(Resource):
 
             queries = [
                 """ SELECT
-                        ctm_id,
-                        ctm_first_name,
-                        ctm_last_name,
-                        ctm_address1,
-                        ctm_address2,
-                        ctm_city,
-                        ctm_state,
-                        ctm_zipcode,
-                        ctm_phone,
-                        ctm_email,
-                        ctm_join_date,
-                        ctm_email_verify
-                    FROM customer""" +
-                "\nWHERE ctm_email = " + "\'" + email + "\';"]
+                        user_id,
+                        user_is_customer,
+                        user_is_donor,
+                        user_is_admin,
+                        user_is_foodbank,
+                        user_first_name,
+                        user_last_name,
+                        user_address1,
+                        user_address2,
+                        user_city,
+                        user_state,
+                        user_zipcode,
+                        user_phone,
+                        user_email,
+                        user_join_date,
+                        user_email_verified
+                    FROM users""" +
+                "\nWHERE user_email = " + "\'" + email + "\';"]
+
+            print("get user id query write")
 
             items = execute(queries[0], 'get', conn)
-            user_uid = items['result'][0]['ctm_id']
+            user_uid = items['result'][0]['user_id']
+
+            print("get user id query done")
 
             queries.append(
-                "SELECT * FROM passwords WHERE ctm_id = \'" + user_uid + "\';")
+                "SELECT * FROM passwords WHERE user_id = \'" + user_uid + "\';")
             password_response = execute(queries[1], 'get', conn)
             salt = password_response['result'][0]['pwd_salt']
 
@@ -1676,6 +1863,10 @@ class SocialSignUp(Resource):
             conn = connect()
             data = request.get_json(force=True)
 
+            user_is_customer = data['user_is_customer']
+            user_is_donor = data['user_is_donor']
+            user_is_admin = data['user_is_admin']
+            user_is_foodbank = data['user_is_foodbank']
             first_name = data['first_name']
             last_name = data['last_name']
             address1 = data['address1']
@@ -1693,52 +1884,59 @@ class SocialSignUp(Resource):
             print("Received:", data)
 
             # Query [0]
-            queries = ["CALL get_customer_id;"]
+            queries = ["CALL get_user_id;"]
 
             NewUserIDresponse = execute(queries[0], 'get', conn)
             NewUserID = NewUserIDresponse['result'][0]['new_id']
 
             print("NewUserID:", NewUserID)
 
-            # Query [1]
-            queries.append(
-                """ INSERT INTO customer
-                    (
-                        ctm_id,
-                        ctm_first_name,
-                        ctm_last_name,
-                        ctm_address1,
-                        ctm_address2,
-                        ctm_city,
-                        ctm_state,
-                        ctm_zipcode,
-                        ctm_phone,
-                        ctm_email,
-                        ctm_join_date
-                    )
-                    VALUES
-                    (""" +
-                "\'" + NewUserID + "\'," +
-                "\'" + first_name + "\'," +
-                "\'" + last_name + "\'," +
-                "\'" + address1 + "\'," +
-                "\'" + address2 + "\'," +
-                "\'" + city + "\'," +
-                "\'" + state + "\'," +
-                "\'" + zipcode + "\'," +
-                "\'" + phone + "\'," +
-                "\'" + email + "\'," +
-                "\'" + timeStamp + "\');")
+            queries.append( """ INSERT INTO users
+                                (
+                                    user_id,
+                                    user_is_customer,
+                                    user_is_donor,
+                                    user_is_admin,
+                                    user_is_foodbank,
+                                    user_first_name,
+                                    user_last_name,
+                                    user_address1,
+                                    user_address2,
+                                    user_city,
+                                    user_state,
+                                    user_zipcode,
+                                    user_phone,
+                                    user_email,
+                                    user_join_date
+                                )
+                                VALUES
+                                (
+                                    \'""" + NewUserID + """\'
+                                    , \'""" + str(user_is_customer) + """\'
+                                    , \'""" + str(user_is_donor) + """\'
+                                    , \'""" + str(user_is_admin) + """\'
+                                    , \'""" + str(user_is_foodbank) + """\'
+                                    , \'""" + first_name + """\'
+                                    , \'""" + last_name + """\'
+                                    , \'""" + address1 + """\'
+                                    , \'""" + address2 + """\'
+                                    ,  \'""" + city + """\'
+                                    , \'""" + state + """\'
+                                    , \'""" +  zipcode + """\'
+                                    , \'""" + phone + """\'
+                                    , \'""" +  email + """\'
+                                    , \'""" +  timeStamp + """\');""")
+
 
             # Query [2]
             queries.append("""
                 INSERT INTO social_accounts
                 (
-                    ctm_id,
-                    ctm_email,
-                    ctm_social_media,
-                    ctm_access_token,
-                    ctm_refresh_token
+                    user_id,
+                    social_email,
+                    social_media,
+                    social_access_token,
+                    social_refresh_token
                 )
                 VALUES
                 (
@@ -1754,8 +1952,8 @@ class SocialSignUp(Resource):
                 response['message'] = 'Request failed.'
 
                 query = """
-                    SELECT ctm_email FROM customer
-                    WHERE ctm_email = \'""" + email + "\';"
+                    SELECT user_email FROM users
+                    WHERE user_email = \'""" + email + "\';"
 
                 emailExists = execute(query, 'get', conn)
 
@@ -1775,6 +1973,21 @@ class SocialSignUp(Resource):
 
             if socInsert['code'] != 281:
                 response['message'] = 'Request failed.'
+
+                query = """
+                    SELECT social_email FROM social_accounts
+                    WHERE social_email = \'""" + email + "\';"
+
+                emailExists = execute(query, 'get', conn)
+
+                if emailExists['code'] == 280 and len(emailExists['result']) > 0:
+                    statusCode = 400
+                    response['result'] = 'Email address taken.'
+                else:
+                    statusCode = 500
+                    response['result'] = 'Internal server error.'
+
+
                 response['result'] = 'Could not commit password.'
                 print(response['message'],
                       response['result'], socInsert['code'])
@@ -1804,12 +2017,12 @@ class Social(Resource):
 
             queries = [
                 """     SELECT
-                        ctm_id,
-                        ctm_email,
-                        ctm_social_media,
-                        ctm_access_token,
-                        ctm_refresh_token
-                    FROM social_accounts WHERE ctm_email = '""" + email + "';"
+                        user_id,
+                        social_email,
+                        social_media,
+                        social_access_token,
+                        social_refresh_token
+                    FROM social_accounts WHERE social_email = '""" + email + "';"
             ]
 
             items = execute(queries[0], 'get', conn)
@@ -1827,25 +2040,29 @@ class Social(Resource):
 class SocialAccount(Resource):
 
     # HTTP method POST
-    def post(self, ctm_id):
+    def post(self, user_id):
         response = {}
         try:
             conn = connect()
             #data = request.get_json(force=True)
             queries = [
                 """     SELECT
-                        ctm_id,
-                        ctm_first_name,
-                        ctm_last_name,
-                        ctm_address1,
-                        ctm_address2,
-                        ctm_city,
-                        ctm_state,
-                        ctm_zipcode,
-                        ctm_phone,
-                        ctm_email,
-                        ctm_join_date
-                    FROM customer WHERE ctm_id = '""" + ctm_id + "';"]
+                        user_id,
+                        user_is_customer,
+                        user_is_donor,
+                        user_is_admin,
+                        user_is_foodbank,
+                        user_first_name,
+                        user_last_name,
+                        user_address1,
+                        user_address2,
+                        user_city,
+                        user_state,
+                        user_zipcode,
+                        user_phone,
+                        user_email,
+                        user_join_date
+                    FROM users WHERE user_id = '""" + user_id + "';"]
 
             items = execute(queries[0], 'get', conn)
 
@@ -1853,7 +2070,7 @@ class SocialAccount(Resource):
             # create a login attempt
             login_attempt = {
                 'auth_success': 'TRUE',
-                'ctm_id': ctm_id,
+                'ctm_id': user_id,
                 'attempt_hash': "NULL",
                 'ip_address': "68.78.203.151",
                 'browser_type': "Chrome",
@@ -1917,7 +2134,7 @@ api.add_resource(FoodType, '/api/v2/foodtype/<foodbank>/<foodtype>')
 
 api.add_resource(SocialSignUp, '/api/v2/socialsignup')
 api.add_resource(Social, '/api/v2/social/<string:email>')
-api.add_resource(SocialAccount, '/api/v2/socialacc/<string:ctm_id>')
+api.add_resource(SocialAccount, '/api/v2/socialacc/<string:user_id>')
 
 # Run on below IP address and port
 # Make sure port number is unused (i.e. don't use numbers 0-1023)
