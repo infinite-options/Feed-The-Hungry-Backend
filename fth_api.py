@@ -369,13 +369,14 @@ class DonationbyFood(Resource):
             conn = connect()
 
             items = execute("""
-               SELECT  foodbank_id
+               SELECT temp.donor_id
+                        , concat(donor_first_name, SPACE(1) ,donor_last_name) as donor_name
+                        , foodbank_id
                         , fb_name
-                        , donor_id
                         , foodID
+                        , quantity
                         , fl_name
-                        , quantity as quantityDonated
-                        , round(quantity * fl_value_in_dollars, 2) AS valueDonated
+                        , round(quantity * fl_value_in_dollars, 2) AS totalDonation
                         , donations_date
                 FROM (
                     SELECT donation_foodbank_id
@@ -389,7 +390,8 @@ class DonationbyFood(Resource):
                     GROUP BY donor_id, foodID, donation_foodbank_id, donations_date) AS temp
                 JOIN food_list ON foodID = food_id
                 JOIN foodbanks ON foodbank_id = donation_foodbank_id
-                ORDER BY foodbank_id, donor_id, foodID;""", 'get', conn)
+                JOIN donor d on temp.donor_id = d.donor_id
+                ORDER BY temp.donor_id,foodbank_id, foodID;""", 'get', conn)
 
             response['message'] = 'successful'
             response['result'] = items
