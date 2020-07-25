@@ -1406,7 +1406,7 @@ def confirm(token, hashed):
         if update.get('code') == 281:
             # redirect to login page
             # Mofify for FTH
-            return redirect('http://preptoyourdoor.netlify.app/login/{}/{}'.format(email, hashed))
+            return redirect("https://infinite-options.github.io/feed-the-hungry/")
         else:
             print("Error happened while confirming an email address.")
             error = "Confirm error."
