@@ -1970,49 +1970,35 @@ class SocialAccount(Resource):
 
 class EditUserStatus(Resource):
     # HTTP method POST
-    def post(self):
+    def get(self, user_id):
         response = {}
-        items = []
         try:
 
             conn = connect()
 
-            data = request.get_json(force=True)
+            query = "UPDATE users SET "
 
-            user_id = data['user_id']
-            user_is_customer = data['user_is_customer']
-            user_is_donor = data['user_is_donor']
-            user_is_admin = data['user_is_admin']
-            user_is_foodbank = data['user_is_foodbank']
+            first_comma = False
 
-            print("a")
+            data = request.args.to_dict()
 
-            queries = [ """ UPDATE users SET
-                                user_is_customer = '""" + str(user_is_customer) + """', 
-                                user_is_donor = '""" + str(user_is_donor) + """', 
-                                user_is_admin = '""" + str(user_is_admin) + """', 
-                                user_is_foodbank = '""" + str(user_is_foodbank) + """'
-                                WHERE user_id = '""" + user_id + """';
-                        """]
+            for key in data:
+                if first_comma:
+                    query += ", "
+                first_comma = True
+                query += str(key) + " = " + data[key]
 
-            print(queries[0])
+            query += " WHERE user_id = '""" + user_id + "';"
+            print(query)
 
-            items = execute(queries[0], 'post', conn)
+            items = execute(query, 'post', conn)
 
-            if items['code'] != 281:
-                response['message'] = 'Request failed.'
-                response['code'] = items['code']
-                return response, statusCode
-
-            response['message'] = 'successful'
+            response['message'] = 'Request successful.'
             response['result'] = items
 
             return response, 200
         except:
-            print("Error happened while chanding the user status")
             raise BadRequest('Request failed, please try again later.')
-        finally:
-            disconnect(conn)
 
 # Define API routes
 
@@ -2063,7 +2049,7 @@ api.add_resource(SocialSignUp, '/api/v2/socialsignup')
 api.add_resource(Social, '/api/v2/social/<string:email>')
 api.add_resource(SocialAccount, '/api/v2/socialacc/<string:user_id>')
 
-api.add_resource(EditUserStatus, '/api/v2/edit_user_status')
+api.add_resource(EditUserStatus, '/api/v2/edit_user_status/<string:user_id>')
 
 # Run on below IP address and port
 # Make sure port number is unused (i.e. don't use numbers 0-1023)
