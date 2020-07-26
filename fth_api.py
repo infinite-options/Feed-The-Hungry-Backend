@@ -2000,6 +2000,71 @@ class EditUserStatus(Resource):
         except:
             raise BadRequest('Request failed, please try again later.')
 
+class InventoryFilter(Resource):
+    # HTTP method POST
+    def get(self, foodbank_id):
+        response = {}
+        try:
+
+            conn = connect()
+
+            query = """SELECT *
+                    FROM(
+                        SELECT *
+                        FROM (
+                            SELECT *
+                            FROM (
+                                SELECT *
+                                FROM (
+                                    SELECT donations.foodbank_id
+                                        , donations.food_id
+                                        , (total_donation_qty - CASE WHEN total_order_qty IS NULL THEN 0 ELSE total_order_qty END) AS inventory_qty
+                                    FROM (
+                                        SELECT foodbank_id
+                                            , food_id
+                                            , SUM(donation_qty) as total_donation_qty
+                                        FROM Donations_new
+                                        GROUP BY food_id, foodbank_id) AS donations
+                                    LEFT JOIN (
+                                        SELECT foodbank_id
+                                            , food_id
+                                            , SUM(order_qty) as total_order_qty
+                                        FROM Orders_new
+                                        GROUP BY food_id, foodbank_id) as orders
+                                    ON donations.food_id = orders.food_id AND donations.foodbank_id = orders.foodbank_id) AS inv_c
+                                WHERE inventory_qty != 0) AS inventory
+                            WHERE foodbank_id = '"""
+
+            query += foodbank_id + """') AS inv_fbid 
+                                    NATURAL JOIN food_list) AS inv_fdlist"""
+
+
+            data = request.args.to_dict()
+
+            if len(data) > 0:
+                query += " WHERE"
+
+            first_comma = False
+            for key in data:
+                if first_comma:
+                    query += " OR"
+                first_comma = True
+                query += " fl_food_type LIKE '%" + str(key) + "%'" 
+
+
+            query += ";"
+
+            print(query)
+
+            items = execute(query, 'get', conn)
+
+            response['message'] = 'Request successful.'
+            response['result'] = items
+
+            return response, 200
+        except:
+            raise BadRequest('Request failed, please try again later.')
+
 # Define API routes
 
 # Still uses getRdsConn()
@@ -2050,6 +2115,8 @@ api.add_resource(Social, '/api/v2/social/<string:email>')
 api.add_resource(SocialAccount, '/api/v2/socialacc/<string:user_id>')
 
 api.add_resource(EditUserStatus, '/api/v2/edit_user_status/<string:user_id>')
+
+api.add_resource(InventoryFilter, '/api/v2/inventory_filter/<string:foodbank_id>')
 
 # Run on below IP address and port
 # Make sure port number is unused (i.e. don't use numbers 0-1023)
