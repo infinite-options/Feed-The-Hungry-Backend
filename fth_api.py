@@ -2047,7 +2047,7 @@ class InventoryFilter(Resource):
             first_comma = False
             for key in data:
                 if first_comma:
-                    query += " OR"
+                    query += " AND"
                 first_comma = True
                 query += " fl_food_type LIKE '%" + str(key) + "%'" 
 
