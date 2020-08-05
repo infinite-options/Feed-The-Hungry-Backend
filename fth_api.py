@@ -2008,49 +2008,65 @@ class InventoryFilter(Resource):
 
             conn = connect()
 
-            query = """SELECT *
-                    FROM(
-                        SELECT *
+            query = """SELECT * 
                         FROM (
-                            SELECT *
+                            SELECT food_id
+                                , inv_dp_t.foodbank_id
+                                , inventory_qty
+                                , (dp_delivery * fb_delivery) AS delivery
+                                , (dp_pickup * fb_pickup) AS pickup
                             FROM (
-                                SELECT *
+                                SELECT inv.food_id
+                                    , inv.foodbank_id
+                                    , inventory_qty
+                                    , IFNULL(dp_delivery, 1) AS dp_delivery
+                                    , IFNULL(dp_pickup, 1) AS dp_pickup
                                 FROM (
+                                    SELECT foodbank_id
+                                        , food_id
+                                        , inventory_qty
+                                    FROM (
                                     SELECT donations.foodbank_id
                                         , donations.food_id
-                                        , (total_donation_qty - CASE WHEN total_order_qty IS NULL THEN 0 ELSE total_order_qty END) AS inventory_qty
+                                        , (total_donation_qty - CASE WHEN total_order_qty IS NULL THEN 0 ELSE total_order_qty END) as inventory_qty
                                     FROM (
                                         SELECT foodbank_id
                                             , food_id
                                             , SUM(donation_qty) as total_donation_qty
-                                        FROM Donations_new
+                                        FROM donations_new
                                         GROUP BY food_id, foodbank_id) AS donations
                                     LEFT JOIN (
-                                        SELECT foodbank_id
-                                            , food_id
-                                            , SUM(order_qty) as total_order_qty
-                                        FROM Orders_new
-                                        GROUP BY food_id, foodbank_id) as orders
-                                    ON donations.food_id = orders.food_id AND donations.foodbank_id = orders.foodbank_id) AS inv_c
-                                WHERE inventory_qty != 0) AS inventory
-                            WHERE foodbank_id = '"""
+                                        SELECT o_foodbank_id AS foodbank_id
+                                        , foodID AS food_id
+                                        , (count(foodID)) AS total_order_qty
+                                        FROM(
+                                            SELECT *
+                                                , TRIM('"' FROM CAST(json_extract(order_list, val) AS CHAR)) AS foodID
+                                            FROM orders
+                                            JOIN numbers ON JSON_LENGTH(order_list) >= n) temp
+                                        GROUP BY foodID, o_foodbank_id) AS orders
+                                    ON donations.food_id = orders.food_id AND donations.foodbank_id = orders.foodbank_id) as inv_c
+                                    WHERE inventory_qty > 0) AS inv
+                                LEFT JOIN delivery_or_pickup AS dp ON inv.food_id = dp.food_id AND inv.foodbank_id = dp.foodbank_id) AS inv_dp_t
+                            LEFT JOIN foodbanks ON foodbanks.foodbank_id = inv_dp_t.foodbank_id) inv_dp
+                        NATURAL JOIN food_list AS inv_fdlist
+                        WHERE foodbank_id = '"""
 
-            query += foodbank_id + """') AS inv_fbid 
-                                    NATURAL JOIN food_list) AS inv_fdlist"""
+            query += foodbank_id + """' """
 
 
             data = request.args.to_dict()
 
             if len(data) > 0:
-                query += " WHERE"
-
-            first_comma = False
-            for key in data:
-                if first_comma:
-                    query += " AND"
-                first_comma = True
-                query += " fl_food_type LIKE '%" + str(key) + "%'" 
-
+                for key in data:
+                    print(key)
+                    if (str(key) == "delivery"):
+                        query += " AND delivery = " + request.args.get("delivery")
+                    elif (str(key) == "pickup"):
+                        query += " AND pickup = " + request.args.get("pickup")
+                    else:
+                        query += " AND"
+                        query += " fl_food_type LIKE '%" + str(key) + "%'"
 
             query += ";"
 
