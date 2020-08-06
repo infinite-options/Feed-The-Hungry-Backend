@@ -1082,15 +1082,15 @@ class addOrder(Resource):
                 quantity = int(quantity)
                 for qty in range(quantity):
                     list.append(meal_id)
-                query = """SELECT inv_qty FROM inventory WHERE food_id = \'"""+meal_id+"""\' AND foodbank_id = \'"""+foodbankId+"""\';"""
-                original_quantity = execute(query, 'get', conn)
-                original_quantity = original_quantity['result'][0]['inv_qty']
+                # query = """SELECT inv_qty FROM inventory WHERE food_id = \'"""+meal_id+"""\' AND foodbank_id = \'"""+foodbankId+"""\';"""
+                # original_quantity = execute(query, 'get', conn)
+                # original_quantity = original_quantity['result'][0]['inv_qty']
             
-                new_quantity = original_quantity - quantity
-                query1 = """UPDATE inventory
-                                SET inv_qty = """ +str(new_quantity)+ """                       
-                                WHERE food_id = \'"""+meal_id+"""\' AND foodbank_id = \'"""+foodbankId+"""\';""";
-                execute(query1, 'get', conn)
+                # new_quantity = original_quantity - quantity
+                # query1 = """UPDATE inventory
+                #                 SET inv_qty = """ +str(new_quantity)+ """                       
+                #                 WHERE food_id = \'"""+meal_id+"""\' AND foodbank_id = \'"""+foodbankId+"""\';""";
+                # execute(query1, 'get', conn)
 
             list = json.dumps(list)
 
